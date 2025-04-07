@@ -1,0 +1,88 @@
+# Comprehensive HTML Editor App Documentation
+
+## Overview
+This document provides a detailed explanation of our VS Code-like HTML editor built with Next.js, optimized for Windows platforms. The editor offers professional features for HTML development with a modern, intuitive interface.
+
+## Core Architecture
+
+### Technology Stack
+- **Next.js**: React framework providing server-side rendering and routing
+- **TypeScript**: For type safety and better developer experience
+- **Monaco Editor**: The same editor that powers VS Code
+- **Zustand**: State management library for React
+- **Tailwind CSS**: Utility-first CSS framework for styling
+
+### Project Structure
+The application follows a modular architecture:
+- `/src/components/editor`: Editor-specific components
+- `/src/components/layout`: Layout components (sidebar, panels, etc.)
+- `/src/components/ui`: Reusable UI components
+- `/src/hooks`: Custom React hooks
+- `/src/lib`: Utility functions and services
+- `/src/store`: State management with Zustand
+
+## Key Features
+
+### Editor Core
+1. **Monaco Editor Integration**: Professional code editing with syntax highlighting, code completion, and error detection
+2. **Multi-tab Interface**: Work on multiple files simultaneously with an intuitive tab system
+3. **Split View**: Edit HTML and see the preview side-by-side with adjustable panes
+4. **File System**: Create, open, save, and manage files with a Windows-optimized file explorer
+
+### HTML-Specific Features
+1. **Live Preview**: Real-time rendering of HTML with auto-refresh
+2. **HTML Validation**: W3C standards validation with error highlighting
+3. **Emmet Support**: Write HTML and CSS quickly with abbreviations
+4. **Tag Matching**: Automatic highlighting of matching HTML tags
+5. **HTML Outline**: Navigate document structure with a DOM tree view
+
+### Advanced Editing Features
+1. **Code Completion**: Context-aware suggestions for HTML, CSS, and JavaScript
+2. **Snippets System**: Pre-defined and custom code snippets for rapid development
+3. **Search and Replace**: Powerful search with regex support
+4. **Code Formatting**: Beautify HTML, CSS, and JavaScript with configurable rules
+5. **Minimap**: Code overview for quick navigation through large files
+
+### UI/UX Features
+1. **Command Palette**: Quick access to all editor commands (Ctrl+Shift+P)
+2. **Customizable Themes**: Light and dark modes with editor theme customization
+3. **Responsive Design Preview**: Test how pages look at different screen sizes
+4. **Keyboard Shortcuts**: VS Code-like shortcuts for efficient workflow
+5. **Context Menus**: Right-click menus with context-aware actions
+
+### Developer Tools
+1. **Browser DevTools Integration**: Inspect elements and debug directly in the editor
+2. **Terminal Integration**: Built-in terminal for running commands
+3. **Git Integration**: Basic version control operations
+4. **Extension System**: Expandable functionality through plugins
+5. **Settings Sync**: Save and sync editor preferences
+
+## State Management
+The application uses Zustand for state management with several stores:
+- **EditorStore**: Manages tabs, file content, and editor preferences
+- **FileStore**: Handles file system operations
+- **UIStore**: Controls UI state (sidebar visibility, panel sizes)
+- **SettingsStore**: User preferences and configuration
+
+## Performance Optimizations
+1. **Code Splitting**: Lazy loading of editor components
+2. **Memoization**: Preventing unnecessary re-renders
+3. **Worker Threads**: Offloading heavy operations to web workers
+4. **Virtualization**: Efficient rendering of large files and lists
+5. **Local Storage**: Caching and session persistence
+
+## Accessibility Features
+1. **Keyboard Navigation**: Full keyboard control of the editor
+2. **Screen Reader Support**: ARIA attributes for assistive technologies
+3. **High Contrast Themes**: Visibility options for all users
+4. **Zoom Controls**: Text size adjustment for better readability
+5. **Focus Indicators**: Clear visual cues for keyboard navigation
+
+## Windows-Specific Optimizations
+1. **Native File System API**: Integration with Windows file system
+2. **Windows Keyboard Shortcuts**: Familiar shortcuts for Windows users
+3. **System Theme Detection**: Automatic light/dark mode based on Windows settings
+4. **Performance Tuning**: Optimized for Windows browsers and hardware
+5. **Windows-style UI**: Familiar interface elements and behaviors
+
+This HTML editor combines the power of professional development tools with the simplicity and focus of a dedicated HTML environment, making it ideal for both beginners and experienced developers working on Windows platforms.
