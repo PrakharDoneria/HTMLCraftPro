@@ -16,8 +16,8 @@ import { getLanguageFromFileName, debounce } from '@/lib/utils';
 import * as monaco from 'monaco-editor';
 
 const Editor: React.FC = () => {
-  const { tabs, activeTab, updateTabContent, setCursorPosition } = useEditorStore();
-  const { fetchFiles } = useFileStore();
+  const { tabs, activeTab, updateTabContent, setCursorPosition, createNewTab } = useEditorStore();
+  const { fetchFiles, files } = useFileStore();
   const { 
     sidebarVisible, rightPanelVisible, commandPaletteOpen,
     toggleCommandPalette 
@@ -26,6 +26,7 @@ const Editor: React.FC = () => {
   const [cursorPos, setCursorPos] = useState({ line: 1, column: 1 });
   const [htmlContent, setHtmlContent] = useState('');
   const [monacoInstance, setMonacoInstance] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const [hasOpenedDefaultFile, setHasOpenedDefaultFile] = useState(false);
 
   const { isLoading } = useQuery({
     queryKey: ['/api/files'],
@@ -34,6 +35,18 @@ const Editor: React.FC = () => {
       return null;
     }
   });
+
+  // Automatically open a default file when files are loaded
+  useEffect(() => {
+    if (!isLoading && files.length > 0 && !hasOpenedDefaultFile && tabs.length === 0) {
+      // Get the first HTML file to open by default
+      const defaultFile = files.find(file => file.name.endsWith('.html')) || files[0];
+      if (defaultFile) {
+        createNewTab(defaultFile.name, defaultFile.content);
+        setHasOpenedDefaultFile(true);
+      }
+    }
+  }, [isLoading, files, hasOpenedDefaultFile, tabs.length, createNewTab]);
 
   // Get current tab content
   const currentTab = tabs.find(tab => tab.id === activeTab);
@@ -87,6 +100,11 @@ const Editor: React.FC = () => {
       // Format document
       useEditorStore.getState().formatActiveTab();
     });
+
+    // Monaco editor needs full focus to work properly
+    setTimeout(() => {
+      editor.focus();
+    }, 100);
   };
 
   // Refresh preview manually
@@ -97,11 +115,18 @@ const Editor: React.FC = () => {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen bg-editor">
+        <div className="text-center text-white">
+          <div className="animate-spin mb-4 mx-auto h-8 w-8 border-t-2 border-b-2 border-primary rounded-full"></div>
+          <p className="text-lg">Loading HTML Editor...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="flex flex-col h-screen overflow-hidden bg-editor text-white">
       <AppHeader />
       
       <div className="flex flex-1 overflow-hidden">
@@ -120,7 +145,7 @@ const Editor: React.FC = () => {
                   onMount={handleEditorMount}
                 />
               ) : (
-                <div className="flex items-center justify-center h-full text-gray-400">
+                <div className="flex items-center justify-center h-full text-gray-400 bg-editor">
                   <div className="text-center">
                     <h2 className="text-xl mb-2">Welcome to HTML Editor</h2>
                     <p>Open a file from the sidebar or create a new file to get started</p>

@@ -3,6 +3,19 @@ import * as monaco from 'monaco-editor';
 import { useEditorStore } from '@/store/editorStore';
 import { debounce } from '@/lib/utils';
 
+// Setup a simpler Monaco worker environment that doesn't use web workers
+// This prevents errors but may slightly reduce performance
+self.MonacoEnvironment = {
+  getWorker: function() {
+    return {
+      addEventListener: function() {},
+      removeEventListener: function() {},
+      postMessage: function() {},
+      terminate: function() {}
+    };
+  }
+};
+
 interface MonacoEditorProps {
   language?: string;
   value: string;
@@ -19,38 +32,39 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
   onMount
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
-  const monacoEditorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const editorInstanceRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const theme = useEditorStore(state => state.theme);
+  const isInitializedRef = useRef(false);
 
-  // Set up Monaco editor theme
+  // Initialize editor once
   useEffect(() => {
-    monaco.editor.defineTheme('vs-dark-custom', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [
-        { token: 'tag', foreground: '569CD6' },
-        { token: 'attribute.name', foreground: '9CDCFE' },
-        { token: 'attribute.value', foreground: 'CE9178' },
-        { token: 'comment', foreground: '6A9955' }
-      ],
-      colors: {
-        'editor.background': '#1E1E1E',
-        'editor.foreground': '#D4D4D4',
-        'editorLineNumber.foreground': '#858585',
-        'editor.lineHighlightBackground': '#2A2D2E50',
-        'editorCursor.foreground': '#AEAFAD',
-        'editor.selectionBackground': '#264F78',
-        'editor.inactiveSelectionBackground': '#3A3D41',
-        'editorIndentGuide.background': '#404040',
-      }
-    });
+    if (editorRef.current && !isInitializedRef.current) {
+      // Define theme once
+      monaco.editor.defineTheme('vs-dark-custom', {
+        base: 'vs-dark',
+        inherit: true,
+        rules: [
+          { token: 'tag', foreground: '569CD6' },
+          { token: 'attribute.name', foreground: '9CDCFE' },
+          { token: 'attribute.value', foreground: 'CE9178' },
+          { token: 'comment', foreground: '6A9955' },
+          { token: 'string', foreground: 'CE9178' },
+          { token: 'keyword', foreground: '569CD6' },
+          { token: 'number', foreground: 'B5CEA8' }
+        ],
+        colors: {
+          'editor.background': '#1E1E1E',
+          'editor.foreground': '#D4D4D4',
+          'editorLineNumber.foreground': '#858585',
+          'editor.selectionBackground': '#264F78',
+          'editorIndentGuide.background': '#404040',
+        }
+      });
+      
+      // Set theme based on user preference
+      monaco.editor.setTheme(theme === 'dark' ? 'vs-dark-custom' : 'vs');
 
-    monaco.editor.setTheme(theme === 'dark' ? 'vs-dark-custom' : 'vs');
-  }, [theme]);
-
-  // Initialize editor
-  useEffect(() => {
-    if (editorRef.current) {
+      // Basic editor options
       const editorOptions: monaco.editor.IStandaloneEditorConstructionOptions = {
         value,
         language,
@@ -59,27 +73,16 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
         automaticLayout: true,
         scrollBeyondLastLine: false,
         lineNumbers: 'on',
-        renderLineHighlight: 'all',
-        colorDecorators: true,
-        fixedOverflowWidgets: true,
-        folding: true,
         tabSize: 2,
         fontSize: 14,
-        scrollbar: {
-          useShadows: false,
-          verticalHasArrows: false,
-          horizontalHasArrows: false,
-          vertical: 'auto',
-          horizontal: 'auto',
-        },
         ...options,
       };
 
       // Create editor instance
       const editor = monaco.editor.create(editorRef.current, editorOptions);
-      monacoEditorRef.current = editor;
+      editorInstanceRef.current = editor;
 
-      // Set up change event handler
+      // Handle changes
       const debouncedOnChange = debounce((val: string) => {
         onChange(val);
       }, 300);
@@ -88,12 +91,12 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
         debouncedOnChange(editor.getValue());
       });
 
-      // Call onMount callback if provided
+      // Call onMount if provided
       if (onMount) {
         onMount(editor);
       }
 
-      // Setup basic HTML intellisense
+      // Register basic language features for HTML
       if (language === 'html') {
         monaco.languages.registerCompletionItemProvider('html', {
           provideCompletionItems: (model, position) => {
@@ -104,41 +107,61 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
               startColumn: wordInfo.startColumn,
               endColumn: wordInfo.endColumn
             };
-
-            const htmlTags = [
-              'html', 'head', 'title', 'body', 'div', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-              'p', 'a', 'img', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'form', 'input',
-              'button', 'select', 'option', 'textarea', 'header', 'footer', 'nav', 'section',
-              'article', 'aside', 'main', 'figure', 'figcaption', 'script', 'style', 'link', 'meta'
-            ];
             
-            const completions = htmlTags.map(tag => ({
-              label: tag,
-              kind: monaco.languages.CompletionItemKind.Keyword,
-              insertText: tag,
-              range
-            }));
-
-            return { suggestions: completions };
+            const htmlTags = ['div', 'span', 'p', 'h1', 'h2', 'a', 'img', 'ul', 'li'];
+            
+            return {
+              suggestions: htmlTags.map(tag => ({
+                label: tag,
+                kind: monaco.languages.CompletionItemKind.Keyword,
+                insertText: tag,
+                range
+              }))
+            };
           }
         });
       }
 
+      // Handle resize
+      const handleResize = () => {
+        editor.layout();
+      };
+      
+      window.addEventListener('resize', handleResize);
+      isInitializedRef.current = true;
+
       return () => {
+        window.removeEventListener('resize', handleResize);
         editor.dispose();
+        isInitializedRef.current = false;
       };
     }
-  }, [language, options, theme, onMount]);
+  }, []); // Empty dependency array ensures this runs only once
 
-  // Update editor value when value prop changes
+  // Update value when it changes externally
   useEffect(() => {
-    if (monacoEditorRef.current) {
-      const currentValue = monacoEditorRef.current.getValue();
+    if (editorInstanceRef.current) {
+      const currentValue = editorInstanceRef.current.getValue();
       if (value !== currentValue) {
-        monacoEditorRef.current.setValue(value);
+        editorInstanceRef.current.setValue(value);
       }
     }
   }, [value]);
+
+  // Update language when it changes
+  useEffect(() => {
+    if (editorInstanceRef.current) {
+      const model = editorInstanceRef.current.getModel();
+      if (model) {
+        monaco.editor.setModelLanguage(model, language);
+      }
+    }
+  }, [language]);
+
+  // Update theme when it changes
+  useEffect(() => {
+    monaco.editor.setTheme(theme === 'dark' ? 'vs-dark-custom' : 'vs');
+  }, [theme]);
 
   return <div ref={editorRef} className="h-full w-full" />;
 };
