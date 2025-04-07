@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useEditorStore } from '@/store/editorStore';
-import { RefreshCw, ExternalLink, Smartphone, Maximize } from 'lucide-react';
+import { RefreshCw, ExternalLink, Smartphone, Tablet, Monitor, Maximize, Chrome } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PreviewProps {
@@ -9,7 +9,7 @@ interface PreviewProps {
   refreshPreview: () => void;
 }
 
-type DeviceSize = 'mobile' | 'tablet' | 'desktop' | 'full';
+type DeviceSize = 'mobile' | 'tablet' | 'desktop' | 'full'; // Explicitly define all possible view modes
 
 const Preview: React.FC<PreviewProps> = ({ 
   className, 
@@ -62,86 +62,118 @@ const Preview: React.FC<PreviewProps> = ({
     }
   };
 
+  // VS Code device frame appearance for responsive modes
+  const getDeviceFrame = () => {
+    if (responsiveMode === 'full') return null;
+    
+    return (
+      <div className={cn(
+        "absolute inset-0 pointer-events-none border-2 border-[#474747] rounded",
+        {
+          "rounded-[32px]": responsiveMode === 'mobile',
+          "rounded-[24px]": responsiveMode === 'tablet'
+        }
+      )}>
+        {responsiveMode === 'mobile' && (
+          <>
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 w-16 h-1 bg-[#474747] rounded-full"></div>
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-10 h-10 border-2 border-[#474747] rounded-full"></div>
+          </>
+        )}
+        {responsiveMode === 'tablet' && (
+          <>
+            <div className="absolute top-1/2 -translate-y-1/2 right-3 w-1 h-10 bg-[#474747] rounded-full"></div>
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className={cn("flex flex-col border-l border-border", className)}>
-      <div className="px-2 py-1 bg-secondary border-b border-border flex items-center justify-between">
-        <div className="text-xs text-gray-400">Preview</div>
-        <div className="flex space-x-1">
+    <div className={cn("flex flex-col", className)}>
+      <div className="px-3 py-1.5 bg-[#1e1e1e] border-b border-[#474747] flex items-center justify-between">
+        <div className="text-xs font-semibold text-[#cccccc]">PREVIEW</div>
+        <div className="flex space-x-2">
           <button 
             className={cn(
-              "p-1 hover:bg-gray-700 rounded",
-              responsiveMode === 'mobile' && "bg-gray-700"
+              "p-1 rounded text-[#cccccc] hover:bg-[#2a2d2e]",
+              responsiveMode === 'mobile' && "bg-[#37373d]"
             )}
             onClick={() => setDeviceSize('mobile')}
-            title="Mobile view"
-          >
-            <Smartphone className="h-3.5 w-3.5" />
-          </button>
-          <button 
-            className={cn(
-              "p-1 hover:bg-gray-700 rounded",
-              responsiveMode === 'tablet' && "bg-gray-700"
-            )}
-            onClick={() => setDeviceSize('tablet')}
-            title="Tablet view"
+            title="Mobile view (375x667)"
           >
             <Smartphone className="h-4 w-4" />
           </button>
           <button 
             className={cn(
-              "p-1 hover:bg-gray-700 rounded",
-              responsiveMode === 'desktop' && "bg-gray-700"
+              "p-1 rounded text-[#cccccc] hover:bg-[#2a2d2e]",
+              responsiveMode === 'tablet' && "bg-[#37373d]"
             )}
-            onClick={() => setDeviceSize('desktop')}
-            title="Desktop view"
+            onClick={() => setDeviceSize('tablet')}
+            title="Tablet view (768x1024)"
           >
-            <Maximize className="h-3.5 w-3.5" />
+            <Tablet className="h-4 w-4" />
           </button>
           <button 
             className={cn(
-              "p-1 hover:bg-gray-700 rounded",
-              responsiveMode === 'full' && "bg-gray-700"
+              "p-1 rounded text-[#cccccc] hover:bg-[#2a2d2e]",
+              responsiveMode === 'desktop' && "bg-[#37373d]"
+            )}
+            onClick={() => setDeviceSize('desktop')}
+            title="Desktop view (1440x900)"
+          >
+            <Monitor className="h-4 w-4" />
+          </button>
+          <button 
+            className={cn(
+              "p-1 rounded text-[#cccccc] hover:bg-[#2a2d2e]",
+              responsiveMode === 'full' && "bg-[#37373d]"
             )}
             onClick={() => setDeviceSize('full')}
             title="Full size"
           >
-            <Maximize className="h-3.5 w-3.5" />
+            <Maximize className="h-4 w-4" />
           </button>
         </div>
       </div>
       
       <div className={cn(
-        "bg-editor flex-1 overflow-auto",
-        responsiveMode !== 'full' ? "flex items-center justify-center p-4" : ""
+        "bg-[#1e1e1e] flex-1 overflow-auto",
+        responsiveMode !== 'full' ? "flex items-center justify-center p-8" : ""
       )}>
-        <iframe 
-          ref={iframeRef}
-          title="HTML Preview"
-          className={cn(
-            "border-0 bg-white",
-            getDeviceSizeStyles(),
-            responsiveMode !== 'full' && "border border-gray-300 rounded shadow-md"
-          )}
-          sandbox="allow-same-origin allow-scripts"
-        />
+        <div className="relative">
+          <iframe 
+            ref={iframeRef}
+            title="HTML Preview"
+            className={cn(
+              "border-0 bg-white",
+              getDeviceSizeStyles(),
+              responsiveMode !== 'full' && "shadow-lg"
+            )}
+            sandbox="allow-same-origin allow-scripts"
+          />
+          {getDeviceFrame()}
+        </div>
       </div>
       
-      <div className="bg-secondary p-2 border-t border-border flex justify-between items-center">
-        <div className="text-xs text-gray-400">Preview</div>
+      <div className="bg-[#1e1e1e] py-1.5 px-3 border-t border-[#474747] flex justify-between items-center">
+        <div className="text-xs text-[#cccccc]">
+          <span className="text-[#75beff]">HTML</span> Preview
+        </div>
         <div className="flex space-x-2">
           <button 
-            className="p-1 hover:bg-gray-700 rounded"
+            className="p-1 hover:bg-[#2a2d2e] text-[#cccccc] rounded"
             onClick={refreshPreview}
             title="Refresh Preview"
           >
             <RefreshCw className="h-4 w-4" />
           </button>
           <button 
-            className="p-1 hover:bg-gray-700 rounded"
+            className="p-1 hover:bg-[#2a2d2e] text-[#cccccc] rounded"
             onClick={openInNewWindow}
             title="Open in Browser"
           >
-            <ExternalLink className="h-4 w-4" />
+            <Chrome className="h-4 w-4" />
           </button>
         </div>
       </div>

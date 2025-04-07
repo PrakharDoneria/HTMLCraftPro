@@ -3,16 +3,16 @@ import * as monaco from 'monaco-editor';
 import { useEditorStore } from '@/store/editorStore';
 import { debounce } from '@/lib/utils';
 
-// Setup a simpler Monaco worker environment that doesn't use web workers
-// This prevents errors but may slightly reduce performance
-self.MonacoEnvironment = {
-  getWorker: function() {
-    return {
-      addEventListener: function() {},
-      removeEventListener: function() {},
+// Monaco editor configuration to work without web workers
+// This is a workaround for environments where web workers don't function properly
+window.MonacoEnvironment = {
+  // Return a mock worker with the minimal API needed to satisfy Monaco
+  getWorker: function(_: any, __: any) {
+    const proxy = {
       postMessage: function() {},
-      terminate: function() {}
+      addEventListener: function() {}
     };
+    return Promise.resolve(proxy as unknown as Worker);
   }
 };
 

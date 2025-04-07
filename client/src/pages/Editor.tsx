@@ -126,29 +126,42 @@ const Editor: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-editor text-white">
+    <div className="flex flex-col h-screen overflow-hidden bg-[#1e1e1e] text-[#cccccc]">
       <AppHeader />
       
       <div className="flex flex-1 overflow-hidden">
-        {sidebarVisible && <Sidebar />}
+        {sidebarVisible && (
+          <Sidebar className="bg-[#252526] border-r border-[#474747] w-64" />
+        )}
         
         <main className="flex-1 flex flex-col overflow-hidden">
-          <Tabs />
+          <Tabs className="bg-[#252526]" />
           
           <div className="flex flex-1 overflow-hidden">
-            <div className="flex-1 relative">
+            <div className="flex-1 relative bg-[#1e1e1e]">
               {activeTab ? (
                 <MonacoEditor
                   language={language}
                   value={editorContent}
                   onChange={handleEditorChange}
                   onMount={handleEditorMount}
+                  options={{
+                    theme: 'vs-dark',
+                    fontSize: 14,
+                    lineNumbers: 'on',
+                    minimap: { enabled: true },
+                    scrollBeyondLastLine: false,
+                    renderLineHighlight: 'all',
+                    wordWrap: 'on',
+                    automaticLayout: true,
+                    tabSize: 2,
+                  }}
                 />
               ) : (
-                <div className="flex items-center justify-center h-full text-gray-400 bg-editor">
+                <div className="flex items-center justify-center h-full text-[#cccccc] bg-[#1e1e1e]">
                   <div className="text-center">
-                    <h2 className="text-xl mb-2">Welcome to HTML Editor</h2>
-                    <p>Open a file from the sidebar or create a new file to get started</p>
+                    <h2 className="text-xl mb-2">Welcome to VS Code-like HTML Editor</h2>
+                    <p className="text-[#8a8a8a]">Open a file from the sidebar or create a new file to get started</p>
                   </div>
                 </div>
               )}
@@ -157,10 +170,11 @@ const Editor: React.FC = () => {
             <ResizeHandle 
               id="editor-preview-resizer"
               direction="horizontal"
+              className="bg-[#474747] w-[1px] hover:w-[3px] hover:bg-[#007acc] transition-all cursor-col-resize"
             />
             
             <Preview 
-              className="w-1/2" 
+              className="w-1/2 bg-[#1e1e1e] border-l border-[#474747]" 
               htmlContent={htmlContent}
               refreshPreview={refreshPreview}
             />
@@ -168,11 +182,17 @@ const Editor: React.FC = () => {
         </main>
         
         {rightPanelVisible && activeTab && (
-          <RightPanel htmlContent={htmlContent} />
+          <RightPanel 
+            htmlContent={htmlContent} 
+            className="bg-[#252526] border-l border-[#474747] w-64"
+          />
         )}
       </div>
       
-      <StatusBar cursorPosition={cursorPos} />
+      <StatusBar 
+        cursorPosition={cursorPos} 
+        className="bg-[#007acc] text-white h-[22px] text-xs px-2 flex items-center"
+      />
       
       <CommandPalette 
         isOpen={commandPaletteOpen} 
