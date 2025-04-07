@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+:root {
+  --primary: #007ACC;
+  --secondary: #252526;
+  --editor: #1E1E1E;
+  --statusbar: #007ACC;
+  --border: #444444;
+  --tab-active: #1E1E1E;
+  --tab-inactive: #2D2D2D;
+}
+
+/* Monaco Editor overrides */
+.monaco-editor .margin {
+  background-color: var(--editor) !important;
+}
+
+.monaco-editor .monaco-scrollable-element {
+  background-color: var(--editor) !important;
+}
+
+.editor-line-numbers {
+  color: #858585;
+  text-align: right;
+  padding-right: 10px;
+  user-select: none;
+}
+
+.syntax-html-tag {
+  color: #569CD6;
+}
+
+.syntax-html-attribute {
+  color: #9CDCFE;
+}
+
+.syntax-html-value {
+  color: #CE9178;
+}
+
+.syntax-html-comment {
+  color: #6A9955;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--editor);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #424242;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555555;
+}
+
+/* Tree view */
+.tree-item-icon {
+  width: 16px;
+  display: inline-block;
+}
+
+.html-outline-item {
+  cursor: pointer;
+}
+
+.html-outline-item:hover {
+  background-color: #2A2D2E;
+}
+
+/* Tabs */
+.tab {
+  position: relative;
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--primary);
+}
