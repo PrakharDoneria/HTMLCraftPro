@@ -63,9 +63,13 @@ export const useResizePanel = ({
   }, [id, direction, minSize, onResize]);
 
   const handleMouseUp = useCallback(() => {
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-    document.body.style.cursor = '';
+    try {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+    } catch (error) {
+      console.error('Error in mouse up handler:', error);
+    }
   }, [handleMouseMove]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -77,10 +81,16 @@ export const useResizePanel = ({
 
   // Clean up event listeners on unmount
   useEffect(() => {
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+    const cleanup = () => {
+      try {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      } catch (error) {
+        console.error('Error cleaning up event listeners:', error);
+      }
     };
+    
+    return cleanup;
   }, [handleMouseMove, handleMouseUp]);
 
   return { handleMouseDown };

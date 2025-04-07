@@ -57,16 +57,37 @@ export const useFileStore = create<FileStore>((set, get) => ({
   
   saveFile: async (name, content) => {
     try {
+      console.log(`Saving file to server: ${name}`);
       set({ loading: true, error: null });
-      await apiRequest('PUT', `/api/files/${encodeURIComponent(name)}`, { content });
+      
+      const url = `/api/files/${encodeURIComponent(name)}`;
+      console.log(`Request URL: ${url}`);
+      
+      const response = await apiRequest('PUT', url, { content });
+      console.log('Save response:', response.status, response.statusText);
       
       // Update local state
-      set(state => ({
-        files: state.files.map(file => 
-          file.name === name ? { ...file, content } : file
-        ),
-        loading: false
-      }));
+      set(state => {
+        const existingFile = state.files.find(file => file.name === name);
+        
+        if (existingFile) {
+          console.log(`Updating existing file in state: ${name}`);
+          return {
+            files: state.files.map(file => 
+              file.name === name ? { ...file, content } : file
+            ),
+            loading: false
+          };
+        } else {
+          console.log(`Adding new file to state: ${name}`);
+          return {
+            files: [...state.files, { name, content }],
+            loading: false
+          };
+        }
+      });
+      
+      console.log(`File saved successfully: ${name}`);
     } catch (error) {
       console.error('Error saving file:', error);
       set({ 

@@ -108,7 +108,12 @@ const Editor: React.FC = () => {
     // Set up keyboard shortcuts
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       // Save the current file
-      useEditorStore.getState().saveActiveTab();
+      try {
+        console.log('Saving file with Ctrl+S shortcut...');
+        useEditorStore.getState().saveActiveTab();
+      } catch (error) {
+        console.error('Error saving file:', error);
+      }
     });
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => {

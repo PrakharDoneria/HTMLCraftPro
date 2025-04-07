@@ -48,18 +48,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fileName = req.params.name;
       const { content } = req.body;
       
+      console.log(`[Routes] PUT request for file: ${fileName}`);
+      
       if (content === undefined) {
+        console.error('[Routes] Missing content in request body');
         return res.status(400).json({ error: 'File content is required' });
       }
       
-      const file = await storage.updateFile(fileName, content);
+      // Check if file already exists
+      let existingFile = await storage.getFile(fileName);
+      let file;
       
-      if (!file) {
-        return res.status(404).json({ error: 'File not found' });
+      if (existingFile) {
+        console.log(`[Routes] Updating existing file: ${fileName}`);
+        file = await storage.updateFile(fileName, content);
+      } else {
+        console.log(`[Routes] File not found, creating new file: ${fileName}`);
+        file = await storage.createFile(fileName, content);
       }
       
+      if (!file) {
+        console.error(`[Routes] Failed to save file: ${fileName}`);
+        return res.status(500).json({ error: 'Failed to save file' });
+      }
+      
+      console.log(`[Routes] File saved successfully: ${fileName}`);
       res.json(file);
     } catch (error) {
+      console.error('[Routes] Error in PUT /api/files/:name:', error);
       res.status(500).json({ error: 'Failed to update file' });
     }
   });

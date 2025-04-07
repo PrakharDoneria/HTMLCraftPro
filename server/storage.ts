@@ -519,14 +519,28 @@ footer a:hover {
   }
   
   async updateFile(name: string, content: string): Promise<File | undefined> {
-    const existingFile = this.files.get(name);
+    console.log(`[Storage] Attempting to update file: ${name}`);
     
-    if (!existingFile) {
+    if (!name) {
+      console.error('[Storage] File name is empty or undefined');
       return undefined;
     }
     
+    const existingFile = this.files.get(name);
+    
+    if (!existingFile) {
+      console.warn(`[Storage] File not found: ${name}`);
+      // Instead of returning undefined, let's create the file if it doesn't exist
+      console.log(`[Storage] Creating new file: ${name}`);
+      const newFile: File = { name, content };
+      this.files.set(name, newFile);
+      return newFile;
+    }
+    
+    console.log(`[Storage] Updating existing file: ${name}`);
     const updatedFile: File = { ...existingFile, content };
     this.files.set(name, updatedFile);
+    console.log(`[Storage] File updated successfully: ${name}`);
     return updatedFile;
   }
   

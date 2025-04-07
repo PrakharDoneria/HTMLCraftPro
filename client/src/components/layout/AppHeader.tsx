@@ -120,24 +120,40 @@ const AppHeader: React.FC<AppHeaderProps> = ({ className = '' }) => {
   };
 
   const handleSaveFileAs = () => {
-    const currentTab = tabs.find(tab => tab.id === activeTab);
-    if (currentTab) {
-      const fileName = prompt('Save as:', currentTab.fileName);
-      if (fileName) {
-        const content = currentTab.content;
-        saveFile(fileName, content);
-        
-        // Create a download link
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+    try {
+      const currentTab = tabs.find(tab => tab.id === activeTab);
+      if (currentTab) {
+        const fileName = prompt('Save as:', currentTab.fileName);
+        if (fileName) {
+          console.log('Saving file as:', fileName);
+          const content = currentTab.content;
+          
+          // Save to server
+          saveFile(fileName, content)
+            .then(() => console.log('File saved to server successfully'))
+            .catch(err => console.error('Error saving file to server:', err));
+          
+          // Create a download link
+          try {
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            console.log('File download triggered');
+          } catch (downloadError) {
+            console.error('Error downloading file:', downloadError);
+          }
+        }
+      } else {
+        console.warn('No active tab found for Save As operation');
       }
+    } catch (error) {
+      console.error('Error in Save As operation:', error);
     }
     setActiveMenu(null);
   };
@@ -302,6 +318,13 @@ const AppHeader: React.FC<AppHeaderProps> = ({ className = '' }) => {
         </div>
 
         <div className="ml-auto flex items-center h-full">
+          <button 
+            className="px-2 h-full flex items-center hover:bg-[#505050]"
+            onClick={handleSaveFile}
+            title="Save (Ctrl+S)"
+          >
+            <Save className="h-4 w-4" />
+          </button>
           <a 
             href="https://instagram.com/prakhardoneria" 
             target="_blank" 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, XCircle } from 'lucide-react';
 import { useEditorStore } from '@/store/editorStore';
+import { useUiStore } from '@/store/uiStore';
 import { generateOutline } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +21,7 @@ const RightPanel: React.FC<RightPanelProps> = ({ className = '', htmlContent }) 
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [activeSection, setActiveSection] = useState<'outline' | 'problems'>('outline');
   const { activeTab } = useEditorStore();
+  const { toggleRightPanel } = useUiStore();
 
   useEffect(() => {
     if (htmlContent) {
@@ -82,18 +84,27 @@ const RightPanel: React.FC<RightPanelProps> = ({ className = '', htmlContent }) 
   return (
     <aside className={cn("w-64 bg-secondary border-l border-border flex flex-col", className)}>
       <div className="p-2 border-b border-border">
-        <div className="flex space-x-4">
+        <div className="flex justify-between items-center">
+          <div className="flex space-x-4">
+            <button 
+              className={cn("text-sm font-medium", activeSection === 'outline' ? 'text-white' : 'text-gray-400')}
+              onClick={() => setActiveSection('outline')}
+            >
+              OUTLINE
+            </button>
+            <button 
+              className={cn("text-sm font-medium", activeSection === 'problems' ? 'text-white' : 'text-gray-400')}
+              onClick={() => setActiveSection('problems')}
+            >
+              PROBLEMS
+            </button>
+          </div>
           <button 
-            className={cn("text-sm font-medium", activeSection === 'outline' ? 'text-white' : 'text-gray-400')}
-            onClick={() => setActiveSection('outline')}
+            onClick={toggleRightPanel}
+            className="text-gray-400 hover:text-white text-xs p-1 rounded hover:bg-gray-700"
+            title="Close Panel"
           >
-            OUTLINE
-          </button>
-          <button 
-            className={cn("text-sm font-medium", activeSection === 'problems' ? 'text-white' : 'text-gray-400')}
-            onClick={() => setActiveSection('problems')}
-          >
-            PROBLEMS
+            <XCircle className="h-4 w-4" />
           </button>
         </div>
       </div>

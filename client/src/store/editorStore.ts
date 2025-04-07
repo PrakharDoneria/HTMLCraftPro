@@ -124,25 +124,102 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     }));
   },
 
-  saveActiveTab: () => {
-    const { tabs, activeTab } = get();
-    if (!activeTab) return;
-    
-    const currentTab = tabs.find(tab => tab.id === activeTab);
-    if (!currentTab) return;
-    
-    // Save file to storage
-    const fileStore = useFileStore.getState();
-    fileStore.saveFile(currentTab.fileName, currentTab.content);
-    
-    // Update tab state
-    set(state => ({
-      tabs: state.tabs.map(tab => 
-        tab.id === activeTab 
-          ? { ...tab, isUnsaved: false } 
-          : tab
-      )
-    }));
+  saveActiveTab: async () => {
+    try {
+      const { tabs, activeTab } = get();
+      if (!activeTab) {
+        console.warn('No active tab to save');
+        return;
+      }
+      
+      const currentTab = tabs.find(tab => tab.id === activeTab);
+      if (!currentTab) {
+        console.warn('Active tab not found in tabs list');
+        return;
+      }
+      
+      console.log('Saving file:', currentTab.fileName);
+      
+      if (!currentTab.fileName) {
+        console.error('Cannot save file with empty filename');
+        // Prompt for filename if empty
+        const fileName = prompt('Please enter a filename to save:');
+        if (!fileName) {
+          console.warn('Save cancelled - no filename provided');
+          return;
+        }
+        // Update the tab with the new filename
+        set(state => ({
+          tabs: state.tabs.map(tab => 
+            tab.id === activeTab 
+              ? { ...tab, fileName } 
+              : tab
+          )
+        }));
+        // Get the updated tab
+        const updatedTab = get().tabs.find(tab => tab.id === activeTab);
+        if (!updatedTab) return;
+        
+        // Save with the new filename
+        const fileStore = useFileStore.getState();
+        await fileStore.saveFile(updatedTab.fileName, updatedTab.content);
+        
+        // Update tab state
+        set(state => ({
+          tabs: state.tabs.map(tab => 
+            tab.id === activeTab 
+              ? { ...tab, isUnsaved: false } 
+              : tab
+          )
+        }));
+        
+        console.log('File saved with new filename:', updatedTab.fileName);
+        return;
+      }
+      
+      // Save file to storage
+      const fileStore = useFileStore.getState();
+      
+      try {
+        await fileStore.saveFile(currentTab.fileName, currentTab.content);
+        console.log('File saved successfully:', currentTab.fileName);
+        
+        // Update tab state
+        set(state => ({
+          tabs: state.tabs.map(tab => 
+            tab.id === activeTab 
+              ? { ...tab, isUnsaved: false } 
+              : tab
+          )
+        }));
+      } catch (saveError) {
+        console.error('Error saving file to server:', saveError);
+        
+        // Try to prompt user for a new filename if save fails
+        const saveAsFileName = prompt('Error saving file. Save as a different name?', currentTab.fileName);
+        if (saveAsFileName) {
+          try {
+            await fileStore.saveFile(saveAsFileName, currentTab.content);
+            console.log('File saved with new name:', saveAsFileName);
+            
+            // Update tab with new filename
+            set(state => ({
+              tabs: state.tabs.map(tab => 
+                tab.id === activeTab 
+                  ? { ...tab, fileName: saveAsFileName, isUnsaved: false } 
+                  : tab
+              )
+            }));
+          } catch (saveAsError) {
+            console.error('Error in save as operation:', saveAsError);
+            alert('Failed to save the file. Please try again with a different filename.');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error in saveActiveTab:', error);
+      alert('An error occurred while saving. Please check console for details.');
+    }
   },
 
   formatActiveTab: () => {

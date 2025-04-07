@@ -1,8 +1,9 @@
 import React from 'react';
 import { useEditorStore } from '@/store/editorStore';
+import { useUiStore } from '@/store/uiStore';
 import { getLanguageFromFileName } from '@/lib/utils';
 import { cn } from '@/lib/utils';
-import { Brackets, Globe, Bell, Check } from 'lucide-react';
+import { Brackets, Globe, Bell, Check, Sidebar, PanelRight } from 'lucide-react';
 
 interface StatusBarProps {
   className?: string;
@@ -14,6 +15,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
   cursorPosition = { line: 1, column: 1 } 
 }) => {
   const { tabs, activeTab } = useEditorStore();
+  const { sidebarVisible, rightPanelVisible, toggleSidebar, toggleRightPanel } = useUiStore();
   const currentTab = tabs.find(tab => tab.id === activeTab);
   const language = currentTab ? getLanguageFromFileName(currentTab.fileName) : 'text';
 
@@ -46,6 +48,26 @@ const StatusBar: React.FC<StatusBarProps> = ({
         <div className="flex items-center px-2 h-full hover:bg-[#1177bb] cursor-pointer">
           <Globe className="h-3.5 w-3.5 mr-1" />
           <span>Live Preview</span>
+        </div>
+        <div 
+          onClick={toggleSidebar}
+          className={cn(
+            "flex items-center px-2 h-full hover:bg-[#1177bb] cursor-pointer", 
+            sidebarVisible ? "bg-[#1177bb]" : ""
+          )}
+          title="Toggle Sidebar"
+        >
+          <Sidebar className="h-3.5 w-3.5" />
+        </div>
+        <div 
+          onClick={toggleRightPanel}
+          className={cn(
+            "flex items-center px-2 h-full hover:bg-[#1177bb] cursor-pointer", 
+            rightPanelVisible ? "bg-[#1177bb]" : ""
+          )}
+          title="Toggle Outline Panel"
+        >
+          <PanelRight className="h-3.5 w-3.5" />
         </div>
         <div className="flex items-center px-2 h-full hover:bg-[#1177bb] cursor-pointer">
           <Bell className="h-3.5 w-3.5" />
