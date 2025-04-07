@@ -28,6 +28,7 @@ interface EditorStore {
   updateTabContent: (tabId: string, content: string) => void;
   saveActiveTab: () => void;
   formatActiveTab: () => void;
+  getCursorPosition: () => CursorPosition;
   toggleTheme: () => void;
   setCursorPosition: (position: CursorPosition) => void;
 }
@@ -172,5 +173,9 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
   setCursorPosition: (position) => {
     set({ cursorPosition: position });
+  },
+  
+  getCursorPosition: () => {
+    return get().cursorPosition;
   }
 }));

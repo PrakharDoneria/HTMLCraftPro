@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useEditorStore } from '@/store/editorStore';
 import { RefreshCw, ExternalLink, Smartphone, Tablet, Monitor, Maximize, Chrome } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -18,7 +17,7 @@ const Preview: React.FC<PreviewProps> = ({
 }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [responsiveMode, setResponsiveMode] = useState<DeviceSize>('full');
-  const { activeTab } = useEditorStore();
+  // Preview now works independently of active tab
 
   // Update preview when HTML content changes
   useEffect(() => {

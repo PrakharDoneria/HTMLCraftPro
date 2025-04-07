@@ -53,25 +53,45 @@ const Editor: React.FC = () => {
   const editorContent = currentTab?.content || '';
   const language = currentTab ? getLanguageFromFileName(currentTab.fileName) : 'plaintext';
 
+  // Get HTML file content for preview
+  const getHtmlFileContent = useCallback(() => {
+    // First check for an active HTML tab
+    const htmlTab = tabs.find(tab => tab.id === activeTab && tab.fileName.endsWith('.html'));
+    if (htmlTab) {
+      return htmlTab.content;
+    }
+    
+    // If active tab is not HTML, find the first HTML tab
+    const firstHtmlTab = tabs.find(tab => tab.fileName.endsWith('.html'));
+    if (firstHtmlTab) {
+      return firstHtmlTab.content;
+    }
+    
+    // If no HTML tab exists, check if there are HTML files that can be opened
+    const htmlFile = files.find(file => file.name.endsWith('.html'));
+    if (htmlFile) {
+      return htmlFile.content;
+    }
+    
+    // Fallback to a basic HTML template
+    return '<!DOCTYPE html><html><head><title>HTML Preview</title></head><body><div style="padding: 20px; font-family: sans-serif; color: #333;"><h2>No HTML file found</h2><p>Open or create an HTML file to see the preview.</p></div></body></html>';
+  }, [tabs, activeTab, files]);
+  
   // Update preview content when editor content changes (debounced)
-  const updatePreview = useCallback(debounce((content: string) => {
-    if (language === 'html') {
-      setHtmlContent(content);
-    }
-  }, 500), [language]);
+  const updatePreview = useCallback(debounce(() => {
+    setHtmlContent(getHtmlFileContent());
+  }, 500), [getHtmlFileContent]);
 
-  // Update preview when editor content changes
+  // Update preview when editor content changes or when tabs change
   useEffect(() => {
-    if (currentTab && currentTab.language === 'html') {
-      setHtmlContent(currentTab.content);
-    }
-  }, [currentTab]);
+    updatePreview();
+  }, [updatePreview, currentTab, tabs]);
 
   // Handle editor content changes
   const handleEditorChange = (value: string) => {
     if (activeTab) {
       updateTabContent(activeTab, value);
-      updatePreview(value);
+      updatePreview();
     }
   };
 
@@ -109,9 +129,7 @@ const Editor: React.FC = () => {
 
   // Refresh preview manually
   const refreshPreview = () => {
-    if (currentTab && currentTab.language === 'html') {
-      setHtmlContent(currentTab.content);
-    }
+    setHtmlContent(getHtmlFileContent());
   };
 
   if (isLoading) {
@@ -181,7 +199,7 @@ const Editor: React.FC = () => {
           </div>
         </main>
         
-        {rightPanelVisible && activeTab && (
+        {rightPanelVisible && (
           <RightPanel 
             htmlContent={htmlContent} 
             className="bg-[#252526] border-l border-[#474747] w-64"

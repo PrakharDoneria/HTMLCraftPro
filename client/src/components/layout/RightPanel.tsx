@@ -22,7 +22,7 @@ const RightPanel: React.FC<RightPanelProps> = ({ className = '', htmlContent }) 
   const { activeTab } = useEditorStore();
 
   useEffect(() => {
-    if (htmlContent && activeTab) {
+    if (htmlContent) {
       try {
         const generatedOutline = generateOutline(htmlContent);
         setOutline(generatedOutline);
@@ -50,7 +50,7 @@ const RightPanel: React.FC<RightPanelProps> = ({ className = '', htmlContent }) 
         console.error('Error generating outline:', error);
       }
     }
-  }, [htmlContent, activeTab]);
+  }, [htmlContent]);
 
   const toggleItemExpand = (index: number) => {
     const newOutline = [...outline];
