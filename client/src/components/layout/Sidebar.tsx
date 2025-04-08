@@ -16,7 +16,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ className = '' }) => {
-  const { files, createFile, deleteFile } = useFileStore();
+  const { files, createFile, deleteFile, deleteFolder } = useFileStore();
   const { openFile } = useEditorStore();
   const [activeTab, setActiveTab] = useState<string>('explorer');
   const [folderExpanded, setFolderExpanded] = useState(true);
@@ -39,6 +39,38 @@ const Sidebar: React.FC<SidebarProps> = ({ className = '' }) => {
     e.stopPropagation();
     if (confirm(`Are you sure you want to delete ${fileName}?`)) {
       deleteFile(fileName);
+    }
+    setActiveFileMenu(null);
+  };
+  
+  const handleDeleteFolder = (folderPath: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm(`Are you sure you want to delete folder '${folderPath}' and ALL of its contents? This cannot be undone.`)) {
+      deleteFolder(folderPath)
+        .then(success => {
+          if (success) {
+            console.log(`Folder deleted: ${folderPath}`);
+            // Update expanded folders state to remove the deleted folder
+            setExpandedFolders(prev => {
+              const newState = { ...prev };
+              delete newState[folderPath];
+              // Remove any subfolders as well
+              Object.keys(newState).forEach(key => {
+                if (key.startsWith(folderPath + '/')) {
+                  delete newState[key];
+                }
+              });
+              return newState;
+            });
+          } else {
+            console.error('Folder deletion operation returned false');
+            alert('Failed to delete folder. Please try again.');
+          }
+        })
+        .catch(err => {
+          console.error('Error deleting folder:', err);
+          alert('Failed to delete folder. Please try again.');
+        });
     }
     setActiveFileMenu(null);
   };
@@ -349,28 +381,37 @@ const Sidebar: React.FC<SidebarProps> = ({ className = '' }) => {
                 <span className="text-xs tracking-wide">{node.name}</span>
               </div>
               {level > 0 && (
-                <button
-                  className="p-1 text-[#cccccc] opacity-0 group-hover:opacity-100 hover:bg-[#505050] rounded"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // Close folder (remove it and all children from view)
-                    setExpandedFolders(prev => {
-                      const newState = { ...prev };
-                      // Close this folder and any subfolders
-                      delete newState[node.path];
-                      // Search for and delete any child paths
-                      Object.keys(newState).forEach(key => {
-                        if (key.startsWith(node.path + '/')) {
-                          delete newState[key];
-                        }
+                <div className="flex">
+                  <button
+                    className="p-1 text-[#cccccc] opacity-0 group-hover:opacity-100 hover:bg-[#505050] rounded mr-1"
+                    onClick={(e) => handleDeleteFolder(node.path, e)}
+                    title="Delete Folder"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-[#f14c4c]" />
+                  </button>
+                  <button
+                    className="p-1 text-[#cccccc] opacity-0 group-hover:opacity-100 hover:bg-[#505050] rounded"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Close folder (remove it and all children from view)
+                      setExpandedFolders(prev => {
+                        const newState = { ...prev };
+                        // Close this folder and any subfolders
+                        delete newState[node.path];
+                        // Search for and delete any child paths
+                        Object.keys(newState).forEach(key => {
+                          if (key.startsWith(node.path + '/')) {
+                            delete newState[key];
+                          }
+                        });
+                        return newState;
                       });
-                      return newState;
-                    });
-                  }}
-                  title="Close Folder"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
+                    }}
+                    title="Close Folder"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               )}
             </div>
             {expandedFolders[node.path] && (

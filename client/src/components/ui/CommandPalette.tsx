@@ -18,6 +18,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose }) => {
   const [search, setSearch] = useState('');
   const [filteredCommands, setFilteredCommands] = useState<Command[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const paletteRef = useRef<HTMLDivElement>(null);
   
   const { 
     createNewTab, saveActiveTab, formatActiveTab, 
@@ -25,6 +26,23 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose }) => {
   } = useEditorStore();
   
   const { createFile } = useFileStore();
+  
+  // Handle clicking outside to close the command palette
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (paletteRef.current && !paletteRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+    
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onClose]);
 
   const commands: Command[] = [
     { 
@@ -127,7 +145,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center pt-20 z-50">
-      <div className="bg-secondary border border-border rounded shadow-lg w-full max-w-lg">
+      <div ref={paletteRef} className="bg-secondary border border-border rounded shadow-lg w-full max-w-lg">
         <div className="p-2 border-b border-border">
           <input 
             ref={inputRef}

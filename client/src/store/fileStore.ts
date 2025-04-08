@@ -14,6 +14,7 @@ interface FileStore {
   createFile: (name: string, content: string) => Promise<File>;
   saveFile: (name: string, content: string) => Promise<File>;
   deleteFile: (name: string) => Promise<boolean>;
+  deleteFolder: (folderPath: string) => Promise<boolean>;
   renameFile: (oldName: string, newName: string) => Promise<boolean>;
 }
 
@@ -136,6 +137,48 @@ export const useFileStore = create<FileStore>((set, get) => ({
       console.error('Error deleting file:', error);
       set({ 
         error: error instanceof Error ? error.message : 'Failed to delete file', 
+        loading: false 
+      });
+      return false;
+    }
+  },
+  
+  deleteFolder: async (folderPath) => {
+    try {
+      if (!folderPath) throw new Error('Folder path cannot be empty');
+      
+      set({ loading: true, error: null });
+      
+      const { files } = get();
+      
+      // Find all files that are in this folder (start with folderPath/)
+      const filesToDelete = files.filter(file => 
+        file.name === folderPath || // The folder itself might be a file
+        file.name.startsWith(folderPath + '/')
+      );
+      
+      console.log(`Deleting folder: ${folderPath} with ${filesToDelete.length} files`);
+      
+      // Delete each file
+      const deletePromises = filesToDelete.map(file => 
+        apiRequest('DELETE', `/api/files/${encodeURIComponent(file.name)}`, undefined)
+      );
+      
+      await Promise.all(deletePromises);
+      
+      // Update local state
+      set(state => ({
+        files: state.files.filter(file => 
+          file.name !== folderPath && !file.name.startsWith(folderPath + '/')
+        ),
+        loading: false
+      }));
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting folder:', error);
+      set({ 
+        error: error instanceof Error ? error.message : 'Failed to delete folder', 
         loading: false 
       });
       return false;

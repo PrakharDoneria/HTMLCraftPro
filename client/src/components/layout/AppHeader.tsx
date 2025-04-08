@@ -652,28 +652,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({ className = '' }) => {
           </p>
         </div>
       )}
-      
-      {/* Social Links */}
-      <div className="absolute bottom-4 right-4 flex items-center space-x-2">
-        <a 
-          href="https://github.com/prakhardoneria" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="p-1.5 rounded-full bg-[#333333] hover:bg-[#444444] transition-colors"
-          title="GitHub @prakhardoneria"
-        >
-          <Github className="h-4 w-4 text-white" />
-        </a>
-        <a 
-          href="https://instagram.com/prakhardoneria" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="p-1.5 rounded-full bg-[#333333] hover:bg-[#444444] transition-colors"
-          title="Instagram @prakhardoneria"
-        >
-          <Instagram className="h-4 w-4 text-white" />
-        </a>
-      </div>
     </header>
   );
 };
