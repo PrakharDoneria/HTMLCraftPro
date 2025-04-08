@@ -48,12 +48,20 @@ jobs:
           draft: false
           prerelease: false
 
+      - name: Find the installer filename
+        id: get_installer
+        shell: pwsh
+        run: |
+          $file = Get-ChildItem -Path "src-tauri/target/release/bundle/nsis" -Filter *.exe | Select-Object -First 1
+          echo "Found installer: $($file.Name)"
+          echo "::set-output name=filename::$($file.Name)"
+
       - name: Upload .exe to Release
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./src-tauri/target/release/bundle/nsis/HTML Editor PRO_0.1.0_x64-setup.exe
+          asset_path: src-tauri/target/release/bundle/nsis/${{ steps.get_installer.outputs.filename }}
           asset_name: HTML_Editor_PRO_Setup.exe
           asset_content_type: application/vnd.microsoft.portable-executable
