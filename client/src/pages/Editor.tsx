@@ -65,10 +65,17 @@ const Editor: React.FC = () => {
     }
   }, [isLoading, files, hasOpenedDefaultFile, tabs.length, createNewTab]);
 
-  // Get current tab content
-  const currentTab = tabs.find(tab => tab.id === activeTab);
-  const editorContent = currentTab?.content || '';
-  const language = currentTab ? getLanguageFromFileName(currentTab.fileName) : 'plaintext';
+  // Get current tab content - ensure we always get the latest version
+  const currentTab = useCallback(() => {
+    return tabs.find(tab => tab.id === activeTab);
+  }, [tabs, activeTab]);
+  
+  // Get content and language for the current tab
+  const activeTabData = currentTab();
+  const editorContent = activeTabData?.content || '';
+  const language = activeTabData?.fileName 
+    ? getLanguageFromFileName(activeTabData.fileName) 
+    : 'plaintext';
 
   // Get HTML file content for preview
   const getHtmlFileContent = useCallback(() => {
@@ -99,10 +106,10 @@ const Editor: React.FC = () => {
     setHtmlContent(getHtmlFileContent());
   }, 500), [getHtmlFileContent]);
 
-  // Update preview when editor content changes or when tabs change
+  // Update preview when editor content changes or when active tab changes
   useEffect(() => {
     updatePreview();
-  }, [updatePreview, currentTab, tabs]);
+  }, [updatePreview, activeTab, tabs]);
 
   // Handle editor content changes
   const handleEditorChange = (value: string) => {

@@ -144,6 +144,16 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
       const currentValue = editorInstanceRef.current.getValue();
       if (value !== currentValue) {
         editorInstanceRef.current.setValue(value);
+        // Force the editor to re-focus and update the view
+        setTimeout(() => {
+          if (editorInstanceRef.current) {
+            editorInstanceRef.current.focus();
+            // Set cursor at the beginning of the document
+            editorInstanceRef.current.setPosition({ lineNumber: 1, column: 1 });
+            // Reveal this position
+            editorInstanceRef.current.revealPosition({ lineNumber: 1, column: 1 });
+          }
+        }, 50);
       }
     }
   }, [value]);
