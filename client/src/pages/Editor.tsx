@@ -49,9 +49,18 @@ const Editor: React.FC = () => {
   // Load files from localStorage before fetching from server
   useEffect(() => {
     if (!localFilesLoaded) {
-      const success = loadFilesFromLocalStorage();
-      console.log('Loaded files from localStorage:', success);
-      setLocalFilesLoaded(true);
+      const loadLocalFiles = async () => {
+        try {
+          const success = await loadFilesFromLocalStorage();
+          console.log('Loaded files from localStorage:', success);
+          setLocalFilesLoaded(true);
+        } catch (error) {
+          console.error('Error loading files from localStorage:', error);
+          setLocalFilesLoaded(true); // Still mark as loaded even on error to continue with fetching
+        }
+      };
+      
+      loadLocalFiles();
     }
   }, [loadFilesFromLocalStorage, localFilesLoaded]);
 

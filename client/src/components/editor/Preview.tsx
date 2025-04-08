@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { RefreshCw, ExternalLink, Smartphone, Tablet, Monitor, Maximize, Chrome, Ruler } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useFileStore } from '@/store/fileStore';
 
 interface PreviewProps {
   className?: string;
@@ -21,20 +22,101 @@ const Preview: React.FC<PreviewProps> = ({
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [iframeSize, setIframeSize] = useState({ width: 0, height: 0 });
   const [showRulers, setShowRulers] = useState(false);
+  const { files } = useFileStore();
+
+  // Get the CSS and JS files content
+  const getAssociatedFiles = useCallback(() => {
+    // Find all CSS files
+    const cssFiles = files.filter(file => {
+      // Basic check - must end with .css
+      if (!file.name.endsWith('.css')) return false;
+      
+      // Exclude certain types of CSS files (if needed)
+      if (file.name.includes('.min.css')) return false; // Exclude minified versions
+      
+      // Include files with or without paths
+      return true;
+    });
+    
+    // Find all JS files
+    const jsFiles = files.filter(file => {
+      // Basic check - must end with .js
+      if (!file.name.endsWith('.js')) return false;
+      
+      // Exclude certain types of JS files
+      if (file.name.includes('script.min.js')) return false; // Exclude minified versions
+      if (file.name.endsWith('.config.js')) return false; // Exclude config files
+      if (file.name.endsWith('.test.js')) return false; // Exclude test files
+      
+      // Include files with or without paths
+      return true;
+    });
+    
+    // Check for the most common names first
+    const mainCssFile = cssFiles.find(file => 
+      file.name === 'styles.css' || 
+      file.name === 'style.css' || 
+      file.name === 'main.css'
+    );
+    
+    const mainJsFile = jsFiles.find(file => 
+      file.name === 'script.js' || 
+      file.name === 'main.js' || 
+      file.name === 'index.js' || 
+      file.name === 'app.js'
+    );
+    
+    // If we can't find the main files, use the first ones
+    const cssContent = mainCssFile?.content || (cssFiles.length > 0 ? cssFiles[0].content : '');
+    const jsContent = mainJsFile?.content || (jsFiles.length > 0 ? jsFiles[0].content : '');
+    
+    // All discovered CSS and JS files for debugging
+    console.log('Available CSS files:', cssFiles.map(f => f.name));
+    console.log('Available JS files:', jsFiles.map(f => f.name));
+    
+    return {
+      cssContent,
+      jsContent,
+      cssFiles,
+      jsFiles
+    };
+  }, [files]);
 
   // Update preview when HTML content changes
   useEffect(() => {
     if (iframeRef.current) {
       const iframe = iframeRef.current;
       const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      const { cssContent, jsContent } = getAssociatedFiles();
 
       if (iframeDoc) {
         iframeDoc.open();
-        iframeDoc.write(htmlContent);
+        
+        // We need to create a modified version of the HTML content that includes
+        // the inline CSS and JS instead of external references
+        let modifiedContent = htmlContent;
+        
+        // Add CSS inline if it's not already in the HTML
+        if (cssContent && !modifiedContent.includes('<style>')) {
+          modifiedContent = modifiedContent.replace(
+            '</head>',
+            `<style>${cssContent}</style></head>`
+          );
+        }
+        
+        // Add JS inline if it's not already in the HTML
+        if (jsContent && !modifiedContent.includes('<script>')) {
+          modifiedContent = modifiedContent.replace(
+            '</body>',
+            `<script>${jsContent}</script></body>`
+          );
+        }
+        
+        iframeDoc.write(modifiedContent);
         iframeDoc.close();
       }
     }
-  }, [htmlContent]);
+  }, [htmlContent, getAssociatedFiles]);
 
   // Update iframe size on resize
   useEffect(() => {
@@ -84,9 +166,30 @@ const Preview: React.FC<PreviewProps> = ({
 
   // Open in new window
   const openInNewWindow = () => {
+    const { cssContent, jsContent } = getAssociatedFiles();
     const newWindow = window.open('', '_blank');
+    
     if (newWindow) {
-      newWindow.document.write(htmlContent);
+      // Create modified HTML that includes the inline CSS and JS
+      let modifiedContent = htmlContent;
+      
+      // Add CSS inline if it's not already in the HTML
+      if (cssContent && !modifiedContent.includes('<style>')) {
+        modifiedContent = modifiedContent.replace(
+          '</head>',
+          `<style>${cssContent}</style></head>`
+        );
+      }
+      
+      // Add JS inline if it's not already in the HTML
+      if (jsContent && !modifiedContent.includes('<script>')) {
+        modifiedContent = modifiedContent.replace(
+          '</body>',
+          `<script>${jsContent}</script></body>`
+        );
+      }
+      
+      newWindow.document.write(modifiedContent);
       newWindow.document.close();
     }
   };

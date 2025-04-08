@@ -280,16 +280,34 @@ export const useFileStore = create<FileStore>((set, get) => ({
   },
   
   // Load files from localStorage for Windows app persistence
-  loadFilesFromLocalStorage: () => {
+  loadFilesFromLocalStorage: async () => {
     try {
       const { localStorageKey } = get();
       const storedFiles = localStorage.getItem(localStorageKey);
+      console.log('Loaded files from localStorage:', !!storedFiles);
       
       if (storedFiles) {
         const parsedFiles = JSON.parse(storedFiles);
         if (Array.isArray(parsedFiles)) {
+          // Update local state with the stored files
           set({ files: parsedFiles });
-          console.log('Files loaded from localStorage successfully', parsedFiles);
+          
+          // Also ensure the backend is synchronized with these files
+          // This is important for the Preview component which might fetch files from the backend
+          for (const file of parsedFiles) {
+            try {
+              // Save each file to the server store
+              if (file.name && file.content) {
+                const url = `/api/files/${encodeURIComponent(file.name)}`;
+                await apiRequest('PUT', url, { content: file.content });
+                console.log(`Synchronized file with server: ${file.name}`);
+              }
+            } catch (syncError) {
+              console.error(`Error synchronizing file ${file.name} with server:`, syncError);
+            }
+          }
+          
+          console.log('Files loaded and synchronized successfully');
           return true;
         }
       }
