@@ -280,9 +280,19 @@ class GitHubService {
       }
       
       console.log('Creating gist with files:', Object.keys(processedFiles));
+      console.log('Token available:', !!this.token);
       
-      // Following GitHub's API documentation format
-      const response = await fetch(`${this.baseUrl}/gists`, {
+      // Construct request based exactly on the successful curl example
+      const requestBody = {
+        description,
+        public: isPublic,
+        files: processedFiles
+      };
+      
+      console.log('Request body:', JSON.stringify(requestBody));
+      
+      // Use direct fetch with exact same headers as the successful curl example
+      const response = await fetch('https://api.github.com/gists', {
         method: 'POST',
         headers: {
           'Accept': 'application/vnd.github+json',
@@ -290,18 +300,29 @@ class GitHubService {
           'X-GitHub-Api-Version': '2022-11-28',
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          description,
-          public: isPublic,
-          files: processedFiles
-        })
+        body: JSON.stringify(requestBody)
       });
       
+      console.log('Response status:', response.status);
+      
       if (response.status === 201) {
-        return response.json();
+        const data = await response.json();
+        console.log('Gist created successfully:', data.html_url);
+        return data;
       } else {
-        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-        console.error('Error creating gist:', errorData);
+        // Read response body text for better error diagnosis
+        const responseText = await response.text();
+        console.error('Error creating gist, status:', response.status);
+        console.error('Response body:', responseText);
+        
+        // Try to parse the response as JSON, if possible
+        let errorData;
+        try {
+          errorData = JSON.parse(responseText);
+        } catch (e) {
+          errorData = { message: responseText || 'Unknown error' };
+        }
+        
         throw new Error(`GitHub API error: ${response.status} - ${JSON.stringify(errorData)}`);
       }
     } catch (error) {
@@ -329,25 +350,45 @@ class GitHubService {
     try {
       if (!this.token) return null;
       
+      console.log(`Creating/updating file in ${owner}/${repo}/${path}`);
+      
       // Convert content to base64
       const base64Content = btoa(unescape(encodeURIComponent(content)));
       
-      const data: any = {
+      const requestBody: any = {
         message,
         content: base64Content
       };
       
       // If sha is provided, it means we're updating an existing file
       if (sha) {
-        data.sha = sha;
+        requestBody.sha = sha;
       }
       
-      const response = await this.post(`/repos/${owner}/${repo}/contents/${path}`, data);
+      console.log(`Token available: ${!!this.token}, SHA: ${sha ? 'provided' : 'not provided'}`);
+      
+      // Use direct fetch to match our successful approach
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
+        method: 'PUT',
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'Authorization': `Bearer ${this.token}`,
+          'X-GitHub-Api-Version': '2022-11-28',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      console.log('Response status:', response.status);
       
       if (response.status === 200 || response.status === 201) {
-        return response.json();
+        const data = await response.json();
+        console.log('File created/updated successfully');
+        return data;
       } else {
-        console.error('Error creating/updating file:', await response.text());
+        // Get the response text for better error diagnosis
+        const responseText = await response.text();
+        console.error(`Error creating/updating file (status ${response.status}):`, responseText);
         return null;
       }
     } catch (error) {
@@ -362,10 +403,28 @@ class GitHubService {
    */
   async getFileContent(owner: string, repo: string, path: string): Promise<string | null> {
     try {
-      const response = await this.get(`/repos/${owner}/${repo}/contents/${path}`, true);
+      console.log(`Fetching file content from ${owner}/${repo}/${path}`);
+      
+      // Build the headers - may include token if available
+      const headers: HeadersInit = {
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      };
+      
+      if (this.token) {
+        headers['Authorization'] = `Bearer ${this.token}`;
+      }
+      
+      // Use direct fetch to match our successful approach
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
+        method: 'GET',
+        headers
+      });
       
       if (response.status === 200) {
         const data = await response.json();
+        console.log(`Successfully fetched file: ${path}`);
+        
         // Content is base64 encoded
         if (data.content && data.encoding === 'base64') {
           return decodeURIComponent(escape(atob(data.content)));
@@ -374,7 +433,8 @@ class GitHubService {
           return null;
         }
       } else {
-        console.error('Error fetching file:', await response.text());
+        const responseText = await response.text();
+        console.error(`Error fetching file (status ${response.status}):`, responseText);
         return null;
       }
     } catch (error) {
@@ -389,14 +449,34 @@ class GitHubService {
    */
   async getRepoContents(owner: string, repo: string, path: string = ''): Promise<GitHubFileContent[] | null> {
     try {
+      console.log(`Fetching repo contents from ${owner}/${repo}${path ? `/${path}` : ''}`);
+      
+      // Build the headers - may include token if available
+      const headers: HeadersInit = {
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      };
+      
+      if (this.token) {
+        headers['Authorization'] = `Bearer ${this.token}`;
+      }
+      
       // Path might be empty for root directory
-      const endpoint = `/repos/${owner}/${repo}/contents${path ? `/${path}` : ''}`;
-      const response = await this.get(endpoint, true);
+      const apiPath = path ? `/${path}` : '';
+      
+      // Use direct fetch to match our successful approach
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents${apiPath}`, {
+        method: 'GET',
+        headers
+      });
       
       if (response.status === 200) {
-        return response.json();
+        const data = await response.json();
+        console.log(`Successfully fetched repository contents with ${Array.isArray(data) ? data.length : 1} items`);
+        return data;
       } else {
-        console.error('Error fetching repo contents:', await response.text());
+        const responseText = await response.text();
+        console.error(`Error fetching repo contents (status ${response.status}):`, responseText);
         return null;
       }
     } catch (error) {
@@ -484,38 +564,93 @@ class GitHubService {
     commitMessage: string = 'Push from HTML Editor'
   ): Promise<boolean> {
     try {
-      if (!this.token) return false;
+      if (!this.token) {
+        console.error('GitHub token is required for pushing files');
+        return false;
+      }
+      
+      console.log(`Pushing ${files.length} files to ${owner}/${repo}`);
       
       // Process files one by one since the GitHub API doesn't support batch operations
+      let successCount = 0;
+      let failCount = 0;
+      
       for (const file of files) {
         try {
-          // Try to get existing file to get its SHA
-          const currentFile = await this.get(
-            `/repos/${owner}/${repo}/contents/${file.path}`, 
-            false // This requires authentication
-          );
+          console.log(`Processing file: ${file.path}`);
           
+          // Headers for all GitHub API requests
+          const headers: HeadersInit = {
+            'Accept': 'application/vnd.github+json',
+            'Authorization': `Bearer ${this.token}`,
+            'X-GitHub-Api-Version': '2022-11-28'
+          };
+          
+          // Try to get existing file to get its SHA
           let sha = null;
-          if (currentFile.status === 200) {
-            const fileData = await currentFile.json();
-            sha = fileData.sha;
+          try {
+            console.log(`Checking if file ${file.path} already exists...`);
+            const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${file.path}`, {
+              method: 'GET',
+              headers
+            });
+            
+            if (response.status === 200) {
+              const fileData = await response.json();
+              sha = fileData.sha;
+              console.log(`File already exists, got SHA: ${sha}`);
+            } else if (response.status === 404) {
+              console.log(`File does not exist yet, will create it`);
+            } else {
+              console.error(`Unexpected status when checking file: ${response.status}`);
+              const responseText = await response.text();
+              console.error(`Response body: ${responseText}`);
+            }
+          } catch (e) {
+            console.error(`Error checking file existence:`, e);
+          }
+          
+          // Convert content to base64
+          const base64Content = btoa(unescape(encodeURIComponent(file.content)));
+          
+          // Prepare request body
+          const requestBody: any = {
+            message: commitMessage,
+            content: base64Content
+          };
+          
+          // If sha is provided, it means we're updating an existing file
+          if (sha) {
+            requestBody.sha = sha;
           }
           
           // Create or update the file
-          await this.createOrUpdateFile(
-            owner,
-            repo,
-            file.path,
-            file.content,
-            commitMessage,
-            sha
-          );
+          console.log(`Making PUT request to create/update ${file.path}`);
+          const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${file.path}`, {
+            method: 'PUT',
+            headers: {
+              ...headers,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+          });
+          
+          if (response.status === 200 || response.status === 201) {
+            console.log(`Successfully ${sha ? 'updated' : 'created'} file: ${file.path}`);
+            successCount++;
+          } else {
+            const responseText = await response.text();
+            console.error(`Error ${sha ? 'updating' : 'creating'} file ${file.path} (status ${response.status}):`, responseText);
+            failCount++;
+          }
         } catch (fileError) {
           console.error(`Error processing file ${file.path}:`, fileError);
+          failCount++;
         }
       }
       
-      return true;
+      console.log(`Push completed with ${successCount} successes and ${failCount} failures`);
+      return successCount > 0;
     } catch (error) {
       console.error('Error pushing files to GitHub:', error);
       return false;
