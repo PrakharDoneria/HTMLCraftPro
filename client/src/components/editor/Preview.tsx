@@ -253,13 +253,16 @@ const Preview: React.FC<PreviewProps> = ({
         onMouseLeave={handleMouseLeave}
         ref={previewContainerRef}
       >
-        <div className="relative">
+        <div className={cn(
+          "relative",
+          responsiveMode === 'full' ? "w-full h-full" : ""
+        )}>
           <iframe 
             ref={iframeRef}
             title="HTML Preview"
             className={cn(
               "border-0 bg-white",
-              getDeviceSizeStyles(),
+              responsiveMode === 'full' ? "w-full h-full absolute inset-0" : getDeviceSizeStyles(),
               responsiveMode !== 'full' && "shadow-lg"
             )}
             sandbox="allow-same-origin allow-scripts"

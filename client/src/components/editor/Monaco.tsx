@@ -3,18 +3,37 @@ import * as monaco from 'monaco-editor';
 import { useEditorStore } from '@/store/editorStore';
 import { debounce } from '@/lib/utils';
 
-// Monaco editor configuration to work without web workers
-// This is a workaround for environments where web workers don't function properly
+// Simple Monaco mock worker configuration
 window.MonacoEnvironment = {
-  // Return a mock worker with the minimal API needed to satisfy Monaco
-  getWorker: function(_: any, __: any) {
-    const proxy = {
-      postMessage: function() {},
-      addEventListener: function() {}
-    };
-    return Promise.resolve(proxy as unknown as Worker);
+  getWorker: function() {
+    return Promise.resolve({ 
+      postMessage: () => {}, 
+      addEventListener: () => {} 
+    } as unknown as Worker);
   }
 };
+
+// Define custom VS Code-like theme once
+monaco.editor.defineTheme('vs-dark-custom', {
+  base: 'vs-dark',
+  inherit: true,
+  rules: [
+    { token: 'tag', foreground: '569CD6' },
+    { token: 'attribute.name', foreground: '9CDCFE' },
+    { token: 'attribute.value', foreground: 'CE9178' },
+    { token: 'comment', foreground: '6A9955' },
+    { token: 'string', foreground: 'CE9178' },
+    { token: 'keyword', foreground: '569CD6' },
+    { token: 'number', foreground: 'B5CEA8' }
+  ],
+  colors: {
+    'editor.background': '#1E1E1E',
+    'editor.foreground': '#D4D4D4',
+    'editorLineNumber.foreground': '#858585',
+    'editor.selectionBackground': '#264F78',
+    'editorIndentGuide.background': '#404040',
+  }
+});
 
 interface MonacoEditorProps {
   language?: string;
@@ -33,146 +52,93 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const editorInstanceRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const prevValueRef = useRef(value);
   const theme = useEditorStore(state => state.theme);
-  const isInitializedRef = useRef(false);
 
-  // Initialize editor once
+  // Create editor on mount
   useEffect(() => {
-    if (editorRef.current && !isInitializedRef.current) {
-      // Define theme once
-      monaco.editor.defineTheme('vs-dark-custom', {
-        base: 'vs-dark',
-        inherit: true,
-        rules: [
-          { token: 'tag', foreground: '569CD6' },
-          { token: 'attribute.name', foreground: '9CDCFE' },
-          { token: 'attribute.value', foreground: 'CE9178' },
-          { token: 'comment', foreground: '6A9955' },
-          { token: 'string', foreground: 'CE9178' },
-          { token: 'keyword', foreground: '569CD6' },
-          { token: 'number', foreground: 'B5CEA8' }
-        ],
-        colors: {
-          'editor.background': '#1E1E1E',
-          'editor.foreground': '#D4D4D4',
-          'editorLineNumber.foreground': '#858585',
-          'editor.selectionBackground': '#264F78',
-          'editorIndentGuide.background': '#404040',
-        }
-      });
-      
-      // Set theme based on user preference
-      monaco.editor.setTheme(theme === 'dark' ? 'vs-dark-custom' : 'vs');
-
-      // Basic editor options
-      const editorOptions: monaco.editor.IStandaloneEditorConstructionOptions = {
-        value,
-        language,
-        theme: theme === 'dark' ? 'vs-dark-custom' : 'vs',
-        minimap: { enabled: true },
-        automaticLayout: true,
-        scrollBeyondLastLine: false,
-        lineNumbers: 'on',
-        tabSize: 2,
-        fontSize: 14,
-        ...options,
-      };
-
-      // Create editor instance
-      const editor = monaco.editor.create(editorRef.current, editorOptions);
-      editorInstanceRef.current = editor;
-
-      // Handle changes
-      const debouncedOnChange = debounce((val: string) => {
+    if (!editorRef.current) return;
+    
+    // Set the editor theme based on current theme state
+    const editorTheme = theme === 'dark' ? 'vs-dark-custom' : 'vs';
+    
+    // Create editor instance
+    const editor = monaco.editor.create(editorRef.current, {
+      value,
+      language,
+      theme: editorTheme,
+      minimap: { enabled: true },
+      automaticLayout: true,
+      scrollBeyondLastLine: false,
+      lineNumbers: 'on',
+      tabSize: 2,
+      fontSize: 14,
+      ...options
+    });
+    
+    editorInstanceRef.current = editor;
+    prevValueRef.current = value;
+    
+    // Setup change handler with debounce
+    const debouncedOnChange = debounce((val: string) => {
+      if (val !== prevValueRef.current) {
+        prevValueRef.current = val;
         onChange(val);
-      }, 300);
-
-      editor.onDidChangeModelContent(() => {
-        debouncedOnChange(editor.getValue());
-      });
-
-      // Call onMount if provided
-      if (onMount) {
-        onMount(editor);
       }
+    }, 300);
 
-      // Register basic language features for HTML
-      if (language === 'html') {
-        monaco.languages.registerCompletionItemProvider('html', {
-          provideCompletionItems: (model, position) => {
-            const wordInfo = model.getWordUntilPosition(position);
-            const range = {
-              startLineNumber: position.lineNumber,
-              endLineNumber: position.lineNumber,
-              startColumn: wordInfo.startColumn,
-              endColumn: wordInfo.endColumn
-            };
-            
-            const htmlTags = ['div', 'span', 'p', 'h1', 'h2', 'a', 'img', 'ul', 'li'];
-            
-            return {
-              suggestions: htmlTags.map(tag => ({
-                label: tag,
-                kind: monaco.languages.CompletionItemKind.Keyword,
-                insertText: tag,
-                range
-              }))
-            };
-          }
-        });
-      }
-
-      // Handle resize
-      const handleResize = () => {
-        editor.layout();
-      };
-      
-      window.addEventListener('resize', handleResize);
-      isInitializedRef.current = true;
-
-      return () => {
-        window.removeEventListener('resize', handleResize);
-        editor.dispose();
-        isInitializedRef.current = false;
-      };
+    // Listen for content changes
+    const changeDisposable = editor.onDidChangeModelContent(() => {
+      const newValue = editor.getValue();
+      debouncedOnChange(newValue);
+    });
+    
+    // Call onMount callback if provided
+    if (onMount) {
+      onMount(editor);
     }
-  }, []); // Empty dependency array ensures this runs only once
-
-  // Update value when it changes externally
+    
+    // Cleanup on unmount
+    return () => {
+      changeDisposable.dispose();
+      editor.dispose();
+    };
+  }, []);
+  
+  // Handle theme changes 
   useEffect(() => {
-    if (editorInstanceRef.current) {
-      const currentValue = editorInstanceRef.current.getValue();
-      if (value !== currentValue) {
-        editorInstanceRef.current.setValue(value);
-        // Force the editor to re-focus and update the view
-        setTimeout(() => {
-          if (editorInstanceRef.current) {
-            editorInstanceRef.current.focus();
-            // Set cursor at the beginning of the document
-            editorInstanceRef.current.setPosition({ lineNumber: 1, column: 1 });
-            // Reveal this position
-            editorInstanceRef.current.revealPosition({ lineNumber: 1, column: 1 });
-          }
-        }, 50);
-      }
-    }
-  }, [value]);
-
-  // Update language when it changes
+    if (!editorInstanceRef.current) return;
+    
+    const editorTheme = theme === 'dark' ? 'vs-dark-custom' : 'vs';
+    editorInstanceRef.current.updateOptions({ theme: editorTheme });
+  }, [theme]);
+  
+  // Handle language changes
   useEffect(() => {
-    if (editorInstanceRef.current) {
-      const model = editorInstanceRef.current.getModel();
-      if (model) {
-        monaco.editor.setModelLanguage(model, language);
-      }
+    if (!editorInstanceRef.current) return;
+    
+    const model = editorInstanceRef.current.getModel();
+    if (model) {
+      monaco.editor.setModelLanguage(model, language);
     }
   }, [language]);
-
-  // Update theme when it changes
+  
+  // Handle external value changes
   useEffect(() => {
-    monaco.editor.setTheme(theme === 'dark' ? 'vs-dark-custom' : 'vs');
-  }, [theme]);
+    if (!editorInstanceRef.current || value === prevValueRef.current) return;
 
+    const editor = editorInstanceRef.current;
+    const currentValue = editor.getValue();
+    
+    if (value !== currentValue) {
+      editor.setValue(value);
+      prevValueRef.current = value;
+      
+      // Reset cursor position after content change
+      editor.setPosition({ lineNumber: 1, column: 1 });
+    }
+  }, [value]);
+  
   return <div ref={editorRef} className="h-full w-full" />;
 };
 

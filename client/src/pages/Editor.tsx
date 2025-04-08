@@ -150,6 +150,49 @@ const Editor: React.FC = () => {
       useEditorStore.getState().formatActiveTab();
     });
 
+    // Find functionality (Ctrl+F)
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => {
+      // Trigger Monaco's built-in find widget
+      const findAction = editor.getAction('actions.find');
+      if (findAction) {
+        findAction.run();
+      }
+    });
+
+    // Replace functionality (Ctrl+H)
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH, () => {
+      // Trigger Monaco's built-in replace widget
+      const replaceAction = editor.getAction('editor.action.startFindReplaceAction');
+      if (replaceAction) {
+        replaceAction.run();
+      }
+    });
+
+    // Find Next (F3)
+    editor.addCommand(monaco.KeyCode.F3, () => {
+      const nextMatchAction = editor.getAction('editor.action.nextMatchFindAction');
+      if (nextMatchAction) {
+        nextMatchAction.run();
+      }
+    });
+
+    // Find Previous (Shift+F3)
+    editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F3, () => {
+      const previousMatchAction = editor.getAction('editor.action.previousMatchFindAction');
+      if (previousMatchAction) {
+        previousMatchAction.run();
+      }
+    });
+
+    // Configure find widget with safe options
+    editor.updateOptions({
+      find: {
+        addExtraSpaceOnTop: true,
+        autoFindInSelection: 'never',
+        seedSearchStringFromSelection: 'always',
+      }
+    });
+
     // Monaco editor needs full focus to work properly
     setTimeout(() => {
       editor.focus();
