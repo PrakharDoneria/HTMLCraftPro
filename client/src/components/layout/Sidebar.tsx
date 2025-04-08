@@ -1,6 +1,6 @@
 import React, { useState, useRef, lazy } from 'react';
 import { FolderIcon, Search, Package, GitBranchIcon, PlusIcon, ChevronDown, FileCode, FileCog, FileJson, 
-  Trash2, Edit, FolderUp, MoreHorizontal, Copy, X, Menu, FolderClosed, Eye, EyeOff } from 'lucide-react';
+  Trash2, Edit, FolderUp, MoreHorizontal, Copy, X, Menu, FolderClosed, Eye, EyeOff, TerminalSquare } from 'lucide-react';
 import { useFileStore } from '@/store/fileStore';
 import { useEditorStore } from '@/store/editorStore';
 import { getFileIcon } from '@/lib/utils';
@@ -14,9 +14,13 @@ const GitHubImportExportLazy = lazy(() => import('@/components/github/GitHubImpo
 
 interface SidebarProps {
   className?: string;
+  onToggleTerminal?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ className = '' }) => {
+const Sidebar: React.FC<SidebarProps> = ({ 
+  className = '',
+  onToggleTerminal = () => {} 
+}) => {
   const { files, createFile, deleteFile, deleteFolder } = useFileStore();
   const { openFile } = useEditorStore();
   const [activeTab, setActiveTab] = useState<string>('explorer');
@@ -601,6 +605,14 @@ const Sidebar: React.FC<SidebarProps> = ({ className = '' }) => {
           title="Extensions"
         >
           <Package className="h-6 w-6" />
+        </button>
+        
+        <button 
+          className="w-12 h-12 flex items-center justify-center mb-2 relative text-[#858585] hover:text-white"
+          onClick={onToggleTerminal}
+          title="Toggle Terminal (Ctrl+`)"
+        >
+          <TerminalSquare className="h-6 w-6" />
         </button>
       </div>
       
