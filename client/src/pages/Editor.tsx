@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/layout/Sidebar';
 import AppHeader from '@/components/layout/AppHeader';
@@ -16,7 +16,10 @@ import { getLanguageFromFileName, debounce } from '@/lib/utils';
 import * as monaco from 'monaco-editor';
 
 const Editor: React.FC = () => {
-  const { tabs, activeTab, updateTabContent, setCursorPosition, createNewTab } = useEditorStore();
+  const { 
+    tabs, activeTab, updateTabContent, setCursorPosition, 
+    createNewTab, loadSession, saveSession 
+  } = useEditorStore();
   const { fetchFiles, files } = useFileStore();
   const { 
     sidebarVisible, rightPanelVisible, commandPaletteOpen,
@@ -27,6 +30,20 @@ const Editor: React.FC = () => {
   const [htmlContent, setHtmlContent] = useState('');
   const [monacoInstance, setMonacoInstance] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
   const [hasOpenedDefaultFile, setHasOpenedDefaultFile] = useState(false);
+  const sessionLoaded = useRef(false);
+  
+  // Load saved session on component mount
+  useEffect(() => {
+    if (!sessionLoaded.current) {
+      loadSession();
+      sessionLoaded.current = true;
+      
+      // If we have tabs after loading the session, mark that we've opened files
+      if (tabs.length > 0) {
+        setHasOpenedDefaultFile(true);
+      }
+    }
+  }, [loadSession, tabs.length]);
 
   const { isLoading } = useQuery({
     queryKey: ['/api/files'],

@@ -1,10 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, lazy } from 'react';
 import { FolderIcon, Search, Package, GitBranchIcon, PlusIcon, ChevronDown, FileCode, FileCog, FileJson, 
   Trash2, Edit, FolderUp, MoreHorizontal, Copy, X, Menu } from 'lucide-react';
 import { useFileStore } from '@/store/fileStore';
 import { useEditorStore } from '@/store/editorStore';
 import { getFileIcon } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+
+// Lazy load GitHub components to avoid circular dependencies
+const GitHubLoginLazy = lazy(() => import('@/components/github/GitHubLogin'));
+const GitHubReposLazy = lazy(() => import('@/components/github/GitHubRepos'));
+const GitHubGistsLazy = lazy(() => import('@/components/github/GitHubGists'));
 
 interface SidebarProps {
   className?: string;
@@ -117,19 +122,83 @@ const Sidebar: React.FC<SidebarProps> = ({ className = '' }) => {
       }
     });
 
-    // Process each file
+    // Create a map to organize files by their directories
+    const folderStructure: Map<string, { isFolder: boolean, name: string, path: string, content?: string, children: string[] }> = new Map();
+    
+    // Add root folder to structure
+    folderStructure.set('root', { isFolder: true, name: 'root', path: '', children: [] });
+    
+    // First pass: build folder structure
+    filesToProcess.forEach(({ path }) => {
+      const parts = path.split('/');
+      const fileName = parts.pop() || '';
+      
+      // Create parent folders if they don't exist yet
+      let currentPath = '';
+      for (let i = 0; i < parts.length; i++) {
+        const folderName = parts[i];
+        const parentPath = currentPath;
+        
+        // Update current path as we traverse deeper
+        currentPath = currentPath ? `${currentPath}/${folderName}` : folderName;
+        
+        // Add folder to structure if it doesn't exist
+        if (!folderStructure.has(currentPath)) {
+          folderStructure.set(currentPath, {
+            isFolder: true,
+            name: folderName,
+            path: currentPath,
+            children: []
+          });
+          
+          // Add as child to parent
+          const parent = parentPath === '' ? 'root' : parentPath;
+          const parentFolder = folderStructure.get(parent);
+          if (parentFolder) {
+            parentFolder.children.push(currentPath);
+          }
+        }
+      }
+      
+      // Add file to its parent folder's children
+      const parentPath = parts.length > 0 ? parts.join('/') : 'root';
+      const parent = folderStructure.get(parentPath);
+      if (parent) {
+        const filePath = path;
+        parent.children.push(filePath);
+        
+        // Add file entry to structure
+        folderStructure.set(filePath, {
+          isFolder: false,
+          name: fileName,
+          path: filePath,
+          children: []
+        });
+      }
+    });
+    
+    // Process each file and set content
     filesToProcess.forEach(({ path, file }) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         if (e.target?.result) {
           const content = e.target.result as string;
-          const fileName = path.split('/').pop() || path; // Use filename only, not full path
-          createFile(fileName, content)
-            .catch(err => console.error('Error creating file:', err));
+          
+          // Update the file entry with its content
+          const fileEntry = folderStructure.get(path);
+          if (fileEntry) {
+            fileEntry.content = content;
+            
+            // Create file with full path preserved
+            createFile(path, content)
+              .catch(err => console.error(`Error creating file ${path}:`, err));
+          }
         }
       };
       reader.readAsText(file);
     });
+    
+    console.log('Folder structure uploaded successfully');
   };
   
   // Get appropriate file icon based on file type
@@ -148,6 +217,248 @@ const Sidebar: React.FC<SidebarProps> = ({ className = '' }) => {
       return <FileCog className="h-4 w-4 mr-1.5 text-[#75beff]" />;
     }
   };
+
+  // Group files by folder for display
+  interface FileNode {
+    name: string;
+    path: string;
+    isFolder: boolean;
+    content?: string;
+    children: FileNode[];
+    expanded: boolean;
+  }
+
+  // State to track which folders are expanded
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
+    'root': true, // Root is expanded by default
+  });
+
+  // Toggle folder expansion
+  const toggleFolder = (path: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setExpandedFolders(prev => ({
+      ...prev,
+      [path]: !prev[path]
+    }));
+  };
+
+  // Function to organize files into a tree structure
+  const buildFileTree = (): FileNode => {
+    const root: FileNode = {
+      name: 'root',
+      path: '',
+      isFolder: true,
+      children: [],
+      expanded: true
+    };
+    
+    const folderMap: Record<string, FileNode> = { '': root };
+    
+    // Sort files to ensure folders come first and then alphabetically
+    const sortedFiles = [...files].sort((a, b) => {
+      const aParts = a.name.split('/');
+      const bParts = b.name.split('/');
+      
+      // Compare each path segment
+      for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
+        if (aParts[i] !== bParts[i]) {
+          return aParts[i].localeCompare(bParts[i]);
+        }
+      }
+      
+      // If one path is a prefix of the other, the shorter one comes first
+      return aParts.length - bParts.length;
+    });
+    
+    // First pass: create folder nodes
+    sortedFiles.forEach(file => {
+      const parts = file.name.split('/');
+      let currentPath = '';
+      
+      // Create/find parent folders
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i];
+        const parentPath = currentPath;
+        currentPath = currentPath ? `${currentPath}/${part}` : part;
+        
+        if (!folderMap[currentPath]) {
+          const newFolder: FileNode = {
+            name: part,
+            path: currentPath,
+            isFolder: true,
+            children: [],
+            expanded: expandedFolders[currentPath] !== undefined ? expandedFolders[currentPath] : false
+          };
+          folderMap[currentPath] = newFolder;
+          
+          // Add to parent
+          const parent = folderMap[parentPath];
+          if (parent) {
+            parent.children.push(newFolder);
+          }
+        }
+      }
+      
+      // Create file node
+      const fileName = parts[parts.length - 1];
+      const filePath = file.name;
+      const parentPath = parts.length > 1 ? parts.slice(0, -1).join('/') : '';
+      
+      const fileNode: FileNode = {
+        name: fileName,
+        path: filePath,
+        isFolder: false,
+        content: file.content,
+        children: [],
+        expanded: false
+      };
+      
+      // Add to parent folder
+      const parent = folderMap[parentPath];
+      if (parent) {
+        parent.children.push(fileNode);
+      } else {
+        // If no parent folder (root level file)
+        root.children.push(fileNode);
+      }
+    });
+    
+    return root;
+  };
+  
+  // Recursively render file tree
+  const renderFileTree = (node: FileNode, level: number = 0) => {
+    if (!node.isFolder && node.name.startsWith('.')) {
+      // Skip hidden files
+      return null;
+    }
+    
+    return (
+      <div key={node.path} style={{ marginLeft: level > 0 ? `${level * 0.5}rem` : 0 }}>
+        {node.isFolder ? (
+          <>
+            <div 
+              className="py-1 flex items-center justify-between hover:bg-[#37373d] cursor-pointer group"
+              onClick={(e) => toggleFolder(node.path, e)}
+            >
+              <div className="flex items-center">
+                <ChevronDown 
+                  className={`h-4 w-4 mr-1 transition-transform ${expandedFolders[node.path] ? '' : '-rotate-90'}`} 
+                />
+                <FolderIcon className="h-4 w-4 mr-1.5 text-[#c09553]" />
+                <span className="text-xs tracking-wide">{node.name}</span>
+              </div>
+              {level > 0 && (
+                <button
+                  className="p-1 text-[#cccccc] opacity-0 group-hover:opacity-100 hover:bg-[#505050] rounded"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Close folder (remove it and all children from view)
+                    setExpandedFolders(prev => {
+                      const newState = { ...prev };
+                      // Close this folder and any subfolders
+                      delete newState[node.path];
+                      // Search for and delete any child paths
+                      Object.keys(newState).forEach(key => {
+                        if (key.startsWith(node.path + '/')) {
+                          delete newState[key];
+                        }
+                      });
+                      return newState;
+                    });
+                  }}
+                  title="Close Folder"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            {expandedFolders[node.path] && (
+              <div className="pl-3">
+                {node.children.map(child => renderFileTree(child, level + 1))}
+                {node.children.length === 0 && (
+                  <div className="py-2 px-2 text-xs text-[#a0a0a0] italic">
+                    Empty folder
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <div 
+            className="py-1 px-2 flex items-center justify-between hover:bg-[#37373d] group"
+            draggable
+            onDragStart={(e) => handleDragStart(node.path, e)}
+            onDragEnd={handleDragEnd}
+            onDragOver={handleDragOver}
+          >
+            <div 
+              className="flex items-center flex-grow overflow-hidden cursor-pointer"
+              onClick={() => node.content && handleFileClick(node.path, node.content)}
+            >
+              {getFileIconComponent(node.name)}
+              <span className="truncate">{node.name}</span>
+            </div>
+            <div className="flex items-center">
+              <div className="relative">
+                <button
+                  className="p-1 text-[#cccccc] opacity-0 group-hover:opacity-100 hover:bg-[#37373d] rounded"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveFileMenu(activeFileMenu === node.path ? null : node.path);
+                  }}
+                  title="More Actions"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </button>
+                
+                {activeFileMenu === node.path && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setActiveFileMenu(null)}
+                    />
+                    <div className="absolute right-0 top-full mt-1 bg-[#252526] border border-[#474747] shadow-lg z-50 w-32 py-1 rounded-sm">
+                      <button
+                        className="w-full px-3 py-1.5 text-left text-xs hover:bg-[#094771] flex items-center"
+                        onClick={(e) => handleRenameFile(node.path, e)}
+                      >
+                        <Edit className="h-3.5 w-3.5 mr-2" />
+                        Rename
+                      </button>
+                      <button
+                        className="w-full px-3 py-1.5 text-left text-xs hover:bg-[#094771] flex items-center"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (node.content) {
+                            navigator.clipboard.writeText(node.content);
+                          }
+                          setActiveFileMenu(null);
+                        }}
+                      >
+                        <Copy className="h-3.5 w-3.5 mr-2" />
+                        Copy Content
+                      </button>
+                      <div className="border-t border-[#474747] my-1"></div>
+                      <button
+                        className="w-full px-3 py-1.5 text-left text-xs hover:bg-[#094771] text-[#f14c4c] flex items-center"
+                        onClick={(e) => handleDeleteFile(node.path, e)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-2" />
+                        Delete
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const rootNode = buildFileTree();
 
   const renderFileExplorer = () => (
     <>
@@ -191,76 +502,9 @@ const Sidebar: React.FC<SidebarProps> = ({ className = '' }) => {
               multiple 
               onChange={handleFolderUpload} 
             />
-            {files.map((file, index) => (
-              <div 
-                key={file.name}
-                className="py-1 px-2 flex items-center justify-between hover:bg-[#37373d] group"
-                draggable
-                onDragStart={(e) => handleDragStart(file.name, e)}
-                onDragEnd={handleDragEnd}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(index, e)}
-              >
-                <div 
-                  className="flex items-center flex-grow overflow-hidden cursor-pointer"
-                  onClick={() => handleFileClick(file.name, file.content)}
-                >
-                  {getFileIconComponent(file.name)}
-                  <span className="truncate">{file.name}</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="relative">
-                    <button
-                      className="p-1 text-[#cccccc] opacity-0 group-hover:opacity-100 hover:bg-[#37373d] rounded"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveFileMenu(activeFileMenu === file.name ? null : file.name);
-                      }}
-                      title="More Actions"
-                    >
-                      <MoreHorizontal className="h-3.5 w-3.5" />
-                    </button>
-                    
-                    {activeFileMenu === file.name && (
-                      <>
-                        <div 
-                          className="fixed inset-0 z-40" 
-                          onClick={() => setActiveFileMenu(null)}
-                        />
-                        <div className="absolute right-0 top-full mt-1 bg-[#252526] border border-[#474747] shadow-lg z-50 w-32 py-1 rounded-sm">
-                          <button
-                            className="w-full px-3 py-1.5 text-left text-xs hover:bg-[#094771] flex items-center"
-                            onClick={(e) => handleRenameFile(file.name, e)}
-                          >
-                            <Edit className="h-3.5 w-3.5 mr-2" />
-                            Rename
-                          </button>
-                          <button
-                            className="w-full px-3 py-1.5 text-left text-xs hover:bg-[#094771] flex items-center"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigator.clipboard.writeText(file.content);
-                              setActiveFileMenu(null);
-                            }}
-                          >
-                            <Copy className="h-3.5 w-3.5 mr-2" />
-                            Copy Content
-                          </button>
-                          <div className="border-t border-[#474747] my-1"></div>
-                          <button
-                            className="w-full px-3 py-1.5 text-left text-xs hover:bg-[#094771] text-[#f14c4c] flex items-center"
-                            onClick={(e) => handleDeleteFile(file.name, e)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5 mr-2" />
-                            Delete
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+            
+            {/* Render hierarchical file structure */}
+            {rootNode.children.map(node => renderFileTree(node))}
             
             {files.length === 0 && (
               <div className="py-2 px-2 text-xs text-[#a0a0a0] italic">
@@ -333,11 +577,15 @@ const Sidebar: React.FC<SidebarProps> = ({ className = '' }) => {
           </div>
         )}
         {activeTab === 'source' && (
-          <div className="p-4 text-[#cccccc]">
+          <div className="p-4 text-[#cccccc] overflow-y-auto h-full">
             <div className="text-xs font-semibold mb-2">SOURCE CONTROL</div>
-            <div className="mt-2 text-xs text-[#a0a0a0]">
-              Git support coming soon
-            </div>
+            
+            {/* Dynamically import GitHub components to avoid circular dependencies */}
+            <React.Suspense fallback={<div className="text-xs text-[#9e9e9e] mt-2">Loading GitHub integration...</div>}>
+              <GitHubLoginLazy />
+              <GitHubReposLazy />
+              <GitHubGistsLazy />
+            </React.Suspense>
           </div>
         )}
         {activeTab === 'extensions' && (
