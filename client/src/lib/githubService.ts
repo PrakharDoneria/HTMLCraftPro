@@ -124,11 +124,12 @@ class GitHubService {
     };
     
     if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+      headers['Authorization'] = `token ${this.token}`; // Using 'token' instead of 'Bearer'
     } else if (!anonymousAllowed) {
       throw new Error('Authentication required for this operation');
     }
 
+    console.log(`Sending GET to ${endpoint}`);
     return fetch(`${this.baseUrl}${endpoint}`, {
       method: 'GET',
       headers
@@ -145,9 +146,10 @@ class GitHubService {
     };
     
     if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+      headers['Authorization'] = `token ${this.token}`; // Using 'token' instead of 'Bearer'
     }
 
+    console.log(`Sending POST to ${endpoint}`);
     return fetch(`${this.baseUrl}${endpoint}`, {
       method: 'POST',
       headers,
@@ -275,18 +277,28 @@ class GitHubService {
         throw new Error('No valid files to create gist with');
       }
       
-      const response = await this.post('/gists', {
-        files: processedFiles,
-        description,
-        public: isPublic
+      console.log('Creating gist with files:', Object.keys(processedFiles));
+      
+      const response = await fetch(`${this.baseUrl}/gists`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+          'Authorization': `token ${this.token}` // Note: Using 'token' instead of 'Bearer'
+        },
+        body: JSON.stringify({
+          files: processedFiles,
+          description,
+          public: isPublic
+        })
       });
       
       if (response.status === 201) {
         return response.json();
       } else {
-        const errorText = await response.text();
-        console.error('Error creating gist:', errorText);
-        throw new Error(`GitHub API error: ${response.status} - ${errorText}`);
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        console.error('Error creating gist:', errorData);
+        throw new Error(`GitHub API error: ${response.status} - ${JSON.stringify(errorData)}`);
       }
     } catch (error) {
       console.error('Error creating GitHub gist:', error);

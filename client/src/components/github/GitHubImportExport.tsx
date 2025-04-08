@@ -39,7 +39,9 @@ const GitHubImportExport: React.FC = () => {
   const [importOwner, setImportOwner] = useState('');
   const [importRepo, setImportRepo] = useState('');
   const [importPath, setImportPath] = useState('');
+  const [repoUrl, setRepoUrl] = useState('');
   const [openFilesAfterImport, setOpenFilesAfterImport] = useState(true);
+  const [importMode, setImportMode] = useState<'manual' | 'url'>('manual');
   
   // Push form state
   const [pushOwner, setPushOwner] = useState('');
@@ -49,23 +51,100 @@ const GitHubImportExport: React.FC = () => {
   
   const { toast } = useToast();
   
+  // Parse GitHub repo URL
+  const parseGitHubUrl = (url: string): { owner: string; repo: string; path: string } => {
+    try {
+      // Default values
+      const result = { owner: '', repo: '', path: '' };
+      
+      // Remove trailing slashes
+      const cleanUrl = url.trim().replace(/\/+$/, '');
+      
+      // Handle github.com URLs
+      if (cleanUrl.includes('github.com')) {
+        const githubRegex = /github\.com\/([^\/]+)\/([^\/]+)(?:\/tree\/[^\/]+\/(.+))?|github\.com\/([^\/]+)\/([^\/]+)(?:\/blob\/[^\/]+\/(.+))?|github\.com\/([^\/]+)\/([^\/]+)(?:\/(.+))?/;
+        const match = cleanUrl.match(githubRegex);
+        
+        if (match) {
+          // First capture group pattern
+          if (match[1] && match[2]) {
+            result.owner = match[1];
+            result.repo = match[2];
+            result.path = match[3] || '';
+          } 
+          // Second capture group pattern
+          else if (match[4] && match[5]) {
+            result.owner = match[4];
+            result.repo = match[5];
+            result.path = match[6] || '';
+          }
+          // Third capture group pattern
+          else if (match[7] && match[8]) {
+            result.owner = match[7];
+            result.repo = match[8].split('#')[0]; // Remove hash fragment
+            result.path = match[9] || '';
+          }
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Error parsing GitHub URL:', error);
+      return { owner: '', repo: '', path: '' };
+    }
+  };
+
   // Handle importing files from a GitHub repository
   const handleImportFiles = async () => {
-    if (!importOwner.trim() || !importRepo.trim()) {
-      toast({
-        title: "Required Fields",
-        description: "Please enter repository owner and name",
-        variant: "destructive"
-      });
-      return;
+    let owner = '';
+    let repo = '';
+    let path = '';
+    
+    // Get owner/repo/path from either manual input or URL parsing
+    if (importMode === 'url') {
+      if (!repoUrl.trim()) {
+        toast({
+          title: "Repository URL Required",
+          description: "Please enter a valid GitHub repository URL",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const parsed = parseGitHubUrl(repoUrl.trim());
+      
+      if (!parsed.owner || !parsed.repo) {
+        toast({
+          title: "Invalid Repository URL",
+          description: "Could not extract owner and repository name from the URL",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      owner = parsed.owner;
+      repo = parsed.repo;
+      path = parsed.path;
+    } else {
+      // Manual mode
+      if (!importOwner.trim() || !importRepo.trim()) {
+        toast({
+          title: "Required Fields",
+          description: "Please enter repository owner and name",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      owner = importOwner.trim();
+      repo = importRepo.trim();
+      path = importPath.trim();
     }
     
     try {
-      const importedFiles = await importFilesFromRepo(
-        importOwner.trim(), 
-        importRepo.trim(), 
-        importPath.trim()
-      );
+      console.log(`Importing from: ${owner}/${repo}, path: ${path}`);
+      
+      const importedFiles = await importFilesFromRepo(owner, repo, path);
       
       const fileCount = Object.keys(importedFiles).length;
       
@@ -89,6 +168,7 @@ const GitHubImportExport: React.FC = () => {
         setImportOwner('');
         setImportRepo('');
         setImportPath('');
+        setRepoUrl('');
         setShowImportForm(false);
       } else {
         toast({
@@ -237,38 +317,78 @@ const GitHubImportExport: React.FC = () => {
             <div className="text-xs">
               Import HTML, CSS & JS files from a GitHub repository
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            
+            {/* Import Mode Toggle */}
+            <div className="flex mb-2 bg-[#252526] rounded overflow-hidden border border-[#424242]">
+              <button
+                className={`flex-1 text-xs py-1.5 ${importMode === 'manual' 
+                  ? 'bg-[#094771] text-white' 
+                  : 'hover:bg-[#3a3a3a]'}`}
+                onClick={() => setImportMode('manual')}
+              >
+                Manual Input
+              </button>
+              <button
+                className={`flex-1 text-xs py-1.5 ${importMode === 'url' 
+                  ? 'bg-[#094771] text-white' 
+                  : 'hover:bg-[#3a3a3a]'}`}
+                onClick={() => setImportMode('url')}
+              >
+                Repository URL
+              </button>
+            </div>
+            
+            {importMode === 'manual' ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="import-owner" className="text-xs block mb-1">Repository Owner</label>
+                    <Input
+                      id="import-owner"
+                      value={importOwner}
+                      onChange={(e) => setImportOwner(e.target.value)}
+                      placeholder="e.g. github-username"
+                      className="bg-[#3a3a3a] border-[#424242] text-sm h-8"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="import-repo" className="text-xs block mb-1">Repository Name</label>
+                    <Input
+                      id="import-repo"
+                      value={importRepo}
+                      onChange={(e) => setImportRepo(e.target.value)}
+                      placeholder="e.g. my-website"
+                      className="bg-[#3a3a3a] border-[#424242] text-sm h-8"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="import-path" className="text-xs block mb-1">Directory Path (optional)</label>
+                  <Input
+                    id="import-path"
+                    value={importPath}
+                    onChange={(e) => setImportPath(e.target.value)}
+                    placeholder="e.g. src/components (leave empty for root)"
+                    className="bg-[#3a3a3a] border-[#424242] text-sm h-8"
+                  />
+                </div>
+              </>
+            ) : (
               <div>
-                <label htmlFor="import-owner" className="text-xs block mb-1">Repository Owner</label>
+                <label htmlFor="repo-url" className="text-xs block mb-1">GitHub Repository URL</label>
                 <Input
-                  id="import-owner"
-                  value={importOwner}
-                  onChange={(e) => setImportOwner(e.target.value)}
-                  placeholder="e.g. github-username"
+                  id="repo-url"
+                  value={repoUrl}
+                  onChange={(e) => setRepoUrl(e.target.value)}
+                  placeholder="e.g. https://github.com/username/repo"
                   className="bg-[#3a3a3a] border-[#424242] text-sm h-8"
                 />
+                <p className="text-xs text-[#9e9e9e] mt-1">
+                  Paste the full GitHub URL, including any path to a specific folder
+                </p>
               </div>
-              <div>
-                <label htmlFor="import-repo" className="text-xs block mb-1">Repository Name</label>
-                <Input
-                  id="import-repo"
-                  value={importRepo}
-                  onChange={(e) => setImportRepo(e.target.value)}
-                  placeholder="e.g. my-website"
-                  className="bg-[#3a3a3a] border-[#424242] text-sm h-8"
-                />
-              </div>
-            </div>
-            <div>
-              <label htmlFor="import-path" className="text-xs block mb-1">Directory Path (optional)</label>
-              <Input
-                id="import-path"
-                value={importPath}
-                onChange={(e) => setImportPath(e.target.value)}
-                placeholder="e.g. src/components (leave empty for root)"
-                className="bg-[#3a3a3a] border-[#424242] text-sm h-8"
-              />
-            </div>
+            )}
+            
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Switch 
@@ -283,7 +403,10 @@ const GitHubImportExport: React.FC = () => {
               
               <Button 
                 onClick={handleImportFiles}
-                disabled={importingFiles || !importOwner.trim() || !importRepo.trim()}
+                disabled={
+                  importingFiles || 
+                  (importMode === 'manual' ? (!importOwner.trim() || !importRepo.trim()) : !repoUrl.trim())
+                }
                 size="sm"
               >
                 {importingFiles ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Download className="h-4 w-4 mr-1" />}
@@ -398,7 +521,17 @@ const GitHubImportExport: React.FC = () => {
               </div>
             </div>
             
-            <div className="flex justify-end">
+            <div className="flex justify-between items-center">
+              <Button 
+                variant="outline"
+                onClick={selectAllFiles}
+                disabled={pushingFiles || files.length === 0}
+                size="sm"
+              >
+                <Archive className="h-3.5 w-3.5 mr-1" />
+                Export Entire Codebase
+              </Button>
+              
               <Button 
                 onClick={handlePushFiles}
                 disabled={
