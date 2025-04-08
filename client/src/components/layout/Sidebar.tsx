@@ -1,6 +1,6 @@
 import React, { useState, useRef, lazy } from 'react';
 import { FolderIcon, Search, Package, GitBranchIcon, PlusIcon, ChevronDown, FileCode, FileCog, FileJson, 
-  Trash2, Edit, FolderUp, MoreHorizontal, Copy, X, Menu } from 'lucide-react';
+  Trash2, Edit, FolderUp, MoreHorizontal, Copy, X, Menu, FolderClosed, Eye, EyeOff } from 'lucide-react';
 import { useFileStore } from '@/store/fileStore';
 import { useEditorStore } from '@/store/editorStore';
 import { getFileIcon } from '@/lib/utils';
@@ -391,10 +391,10 @@ const Sidebar: React.FC<SidebarProps> = ({ className = '' }) => {
                     <Trash2 className="h-3.5 w-3.5 text-[#f14c4c]" />
                   </button>
                   <button
-                    className="p-1 text-[#cccccc] opacity-0 group-hover:opacity-100 hover:bg-[#505050] rounded"
+                    className="p-1 text-[#cccccc] opacity-0 group-hover:opacity-100 hover:bg-[#505050] rounded mr-1"
                     onClick={(e) => {
                       e.stopPropagation();
-                      // Close folder (remove it and all children from view)
+                      // Close folder (hide it without deleting)
                       setExpandedFolders(prev => {
                         const newState = { ...prev };
                         // Close this folder and any subfolders
@@ -410,7 +410,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className = '' }) => {
                     }}
                     title="Close Folder"
                   >
-                    <X className="h-3.5 w-3.5" />
+                    <FolderClosed className="h-3.5 w-3.5 text-[#cccccc]" />
                   </button>
                 </div>
               )}

@@ -7,6 +7,7 @@ import RightPanel from '@/components/layout/RightPanel';
 import Tabs from '@/components/editor/Tabs';
 import MonacoEditor from '@/components/editor/Monaco';
 import Preview from '@/components/editor/Preview';
+import Terminal from '@/components/terminal/Terminal';
 import ResizeHandle from '@/components/ui/ResizeHandle';
 import CommandPalette from '@/components/ui/CommandPalette';
 import { useEditorStore } from '@/store/editorStore';
@@ -14,6 +15,7 @@ import { useFileStore } from '@/store/fileStore';
 import { useUiStore } from '@/store/uiStore';
 import { getLanguageFromFileName, debounce } from '@/lib/utils';
 import * as monaco from 'monaco-editor';
+import { TerminalSquare } from 'lucide-react';
 
 const Editor: React.FC = () => {
   const { 
@@ -32,6 +34,10 @@ const Editor: React.FC = () => {
   const [monacoInstance, setMonacoInstance] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
   const [hasOpenedDefaultFile, setHasOpenedDefaultFile] = useState(false);
   const sessionLoaded = useRef(false);
+  
+  // Terminal state
+  const [terminalVisible, setTerminalVisible] = useState(false);
+  const [terminalMaximized, setTerminalMaximized] = useState(false);
   
   // Load saved session on component mount
   useEffect(() => {
@@ -172,6 +178,11 @@ const Editor: React.FC = () => {
       // Format document
       useEditorStore.getState().formatActiveTab();
     });
+    
+    // Toggle terminal with shortcut (Ctrl+`)
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Backquote, () => {
+      setTerminalVisible(prev => !prev);
+    });
 
     // Find functionality (Ctrl+F)
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => {
@@ -310,6 +321,26 @@ const Editor: React.FC = () => {
       <CommandPalette 
         isOpen={commandPaletteOpen} 
         onClose={toggleCommandPalette}
+      />
+      
+      {/* Terminal Button */}
+      {!terminalVisible && (
+        <button
+          className="fixed bottom-6 right-6 bg-[#333] hover:bg-[#444] p-2 rounded-full shadow-lg z-50"
+          onClick={() => setTerminalVisible(true)}
+          title="Open Terminal (Ctrl+`)"
+        >
+          <TerminalSquare className="h-6 w-6 text-[#75beff]" />
+        </button>
+      )}
+      
+      {/* Terminal Component */}
+      <Terminal
+        visible={terminalVisible}
+        onClose={() => setTerminalVisible(false)}
+        onMinimize={() => setTerminalVisible(false)}
+        onMaximize={() => setTerminalMaximized(!terminalMaximized)}
+        isMaximized={terminalMaximized}
       />
     </div>
   );
