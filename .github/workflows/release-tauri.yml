@@ -32,22 +32,28 @@ jobs:
       - name: Install Tauri CLI
         run: npm install -g @tauri-apps/cli
 
-      - name: Verify Tauri project structure
-        run: |
-          dir
-          dir src-tauri
-
-      - name: Build Tauri App with debug info
+      - name: Build Tauri App
         env:
           RUST_BACKTRACE: full
-        run: |
-          echo "Building Tauri app with verbose output..."
-          tauri build --verbose
+        run: tauri build --verbose
 
-      - name: Upload Artifacts
-        if: success()
-        uses: actions/upload-artifact@v4
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: app-windows
-          path: |
-            src-tauri/target/release/bundle/
+          tag_name: v1.0.${{ github.run_number }}
+          release_name: "Release v1.0.${{ github.run_number }}"
+          draft: false
+          prerelease: false
+
+      - name: Upload .exe to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./src-tauri/target/release/bundle/nsis/HTML Editor PRO_0.1.0_x64-setup.exe
+          asset_name: HTML_Editor_PRO_Setup.exe
+          asset_content_type: application/vnd.microsoft.portable-executable
