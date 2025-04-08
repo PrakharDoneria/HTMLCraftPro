@@ -24,7 +24,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustup, cargo
+          components: cargo
 
       - name: Install system dependencies (Linux only)
         if: matrix.os == 'ubuntu-latest'
