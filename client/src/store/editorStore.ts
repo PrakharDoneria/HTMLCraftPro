@@ -215,6 +215,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           const fileStore = useFileStore.getState();
           await fileStore.saveFile(updatedTab.fileName, updatedTab.content);
           
+          // Save files to localStorage for Windows app persistence
+          fileStore.saveFilesToLocalStorage();
+          
           // Update tab state
           set(state => ({
             tabs: state.tabs.map(tab => 
@@ -237,6 +240,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         try {
           await fileStore.saveFile(currentTab.fileName, currentTab.content);
           console.log('File saved successfully:', currentTab.fileName);
+          
+          // Save files to localStorage for Windows app persistence
+          fileStore.saveFilesToLocalStorage();
           
           // Update tab state
           set(state => {
@@ -262,6 +268,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             try {
               await fileStore.saveFile(saveAsFileName, currentTab.content);
               console.log('File saved with new name:', saveAsFileName);
+              
+              // Save files to localStorage for Windows app persistence
+              fileStore.saveFilesToLocalStorage();
               
               // Update tab with new filename
               set(state => {

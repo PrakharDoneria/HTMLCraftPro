@@ -20,7 +20,8 @@ const Editor: React.FC = () => {
     tabs, activeTab, updateTabContent, setCursorPosition, 
     createNewTab, loadSession, saveSession 
   } = useEditorStore();
-  const { fetchFiles, files } = useFileStore();
+  const { fetchFiles, files, loadFilesFromLocalStorage, saveFilesToLocalStorage } = useFileStore();
+  const [localFilesLoaded, setLocalFilesLoaded] = useState(false);
   const { 
     sidebarVisible, rightPanelVisible, commandPaletteOpen,
     toggleCommandPalette 
@@ -45,12 +46,25 @@ const Editor: React.FC = () => {
     }
   }, [loadSession, tabs.length]);
 
+  // Load files from localStorage before fetching from server
+  useEffect(() => {
+    if (!localFilesLoaded) {
+      const success = loadFilesFromLocalStorage();
+      console.log('Loaded files from localStorage:', success);
+      setLocalFilesLoaded(true);
+    }
+  }, [loadFilesFromLocalStorage, localFilesLoaded]);
+
   const { isLoading } = useQuery({
     queryKey: ['/api/files'],
     queryFn: async () => {
-      await fetchFiles();
+      // If we couldn't load from localStorage, fetch from server
+      if (files.length === 0) {
+        await fetchFiles();
+      }
       return null;
-    }
+    },
+    enabled: localFilesLoaded // Only run after checking localStorage
   });
 
   // Automatically open a default file when files are loaded

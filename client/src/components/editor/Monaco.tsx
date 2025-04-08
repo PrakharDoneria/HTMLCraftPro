@@ -3,12 +3,17 @@ import * as monaco from 'monaco-editor';
 import { useEditorStore } from '@/store/editorStore';
 import { debounce } from '@/lib/utils';
 
-// Simple Monaco mock worker configuration
+// Define Monaco environment to handle worker requests
 window.MonacoEnvironment = {
   getWorker: function() {
-    return Promise.resolve({ 
-      postMessage: () => {}, 
-      addEventListener: () => {} 
+    // Create a proper worker-like object with all required methods
+    return Promise.resolve({
+      postMessage: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      onmessage: null,
+      onerror: null,
+      terminate: () => {}
     } as unknown as Worker);
   }
 };

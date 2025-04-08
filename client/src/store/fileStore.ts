@@ -4,24 +4,29 @@ import { apiRequest } from '@/lib/queryClient';
 export interface File {
   name: string;
   content: string;
+  path?: string; // Windows-style path for the file
 }
 
 interface FileStore {
   files: File[];
   loading: boolean;
   error: string | null;
+  localStorageKey: string; // Key for storing files in localStorage
   fetchFiles: () => Promise<void>;
   createFile: (name: string, content: string) => Promise<File>;
   saveFile: (name: string, content: string) => Promise<File>;
   deleteFile: (name: string) => Promise<boolean>;
   deleteFolder: (folderPath: string) => Promise<boolean>;
   renameFile: (oldName: string, newName: string) => Promise<boolean>;
+  saveFilesToLocalStorage: () => void; // Save files to localStorage
+  loadFilesFromLocalStorage: () => void; // Load files from localStorage
 }
 
 export const useFileStore = create<FileStore>((set, get) => ({
   files: [],
   loading: false,
   error: null,
+  localStorageKey: 'windows-html-editor-files',
   
   fetchFiles: async () => {
     try {
@@ -55,10 +60,18 @@ export const useFileStore = create<FileStore>((set, get) => ({
       const newFile = await response.json();
       
       // Update local state
-      set(state => ({
-        files: [...state.files, newFile],
-        loading: false
-      }));
+      set(state => {
+        const updatedFiles = [...state.files, newFile];
+        const updatedState = {
+          files: updatedFiles,
+          loading: false
+        };
+        
+        // Save to localStorage after state update
+        setTimeout(() => get().saveFilesToLocalStorage(), 0);
+        
+        return updatedState;
+      });
       
       return newFile;
     } catch (error) {
@@ -88,10 +101,11 @@ export const useFileStore = create<FileStore>((set, get) => ({
       // Update local state
       set(state => {
         const existingFile = state.files.find(file => file.name === name);
+        let updatedState;
         
         if (existingFile) {
           console.log(`Updating existing file in state: ${name}`);
-          return {
+          updatedState = {
             files: state.files.map(file => 
               file.name === name ? { ...file, content } : file
             ),
@@ -99,11 +113,16 @@ export const useFileStore = create<FileStore>((set, get) => ({
           };
         } else {
           console.log(`Adding new file to state: ${name}`);
-          return {
+          updatedState = {
             files: [...state.files, savedFile],
             loading: false
           };
         }
+        
+        // Save to localStorage after state update
+        setTimeout(() => get().saveFilesToLocalStorage(), 0);
+        
+        return updatedState;
       });
       
       console.log(`File saved successfully: ${name}`);
@@ -127,10 +146,17 @@ export const useFileStore = create<FileStore>((set, get) => ({
       await apiRequest('DELETE', `/api/files/${encodeURIComponent(name)}`, undefined);
       
       // Update local state
-      set(state => ({
-        files: state.files.filter(file => file.name !== name),
-        loading: false
-      }));
+      set(state => {
+        const updatedState = {
+          files: state.files.filter(file => file.name !== name),
+          loading: false
+        };
+        
+        // Save to localStorage after state update
+        setTimeout(() => get().saveFilesToLocalStorage(), 0);
+        
+        return updatedState;
+      });
       
       return true;
     } catch (error) {
@@ -167,12 +193,19 @@ export const useFileStore = create<FileStore>((set, get) => ({
       await Promise.all(deletePromises);
       
       // Update local state
-      set(state => ({
-        files: state.files.filter(file => 
-          file.name !== folderPath && !file.name.startsWith(folderPath + '/')
-        ),
-        loading: false
-      }));
+      set(state => {
+        const updatedState = {
+          files: state.files.filter(file => 
+            file.name !== folderPath && !file.name.startsWith(folderPath + '/')
+          ),
+          loading: false
+        };
+        
+        // Save to localStorage after state update
+        setTimeout(() => get().saveFilesToLocalStorage(), 0);
+        
+        return updatedState;
+      });
       
       return true;
     } catch (error) {
@@ -208,14 +241,21 @@ export const useFileStore = create<FileStore>((set, get) => ({
       await apiRequest('DELETE', `/api/files/${encodeURIComponent(oldName)}`, undefined);
       
       // Update local state
-      set(state => ({
-        files: state.files.map(file => 
-          file.name === oldName 
-            ? { ...file, name: newName } 
-            : file
-        ),
-        loading: false
-      }));
+      set(state => {
+        const updatedState = {
+          files: state.files.map(file => 
+            file.name === oldName 
+              ? { ...file, name: newName } 
+              : file
+          ),
+          loading: false
+        };
+        
+        // Save updated files to localStorage
+        setTimeout(() => get().saveFilesToLocalStorage(), 0);
+        
+        return updatedState;
+      });
       
       return true;
     } catch (error) {
@@ -224,6 +264,39 @@ export const useFileStore = create<FileStore>((set, get) => ({
         error: error instanceof Error ? error.message : 'Failed to rename file', 
         loading: false 
       });
+      return false;
+    }
+  },
+  
+  // Save files to localStorage for Windows app persistence
+  saveFilesToLocalStorage: () => {
+    try {
+      const { files, localStorageKey } = get();
+      localStorage.setItem(localStorageKey, JSON.stringify(files));
+      console.log('Files saved to localStorage successfully');
+    } catch (error) {
+      console.error('Error saving files to localStorage:', error);
+    }
+  },
+  
+  // Load files from localStorage for Windows app persistence
+  loadFilesFromLocalStorage: () => {
+    try {
+      const { localStorageKey } = get();
+      const storedFiles = localStorage.getItem(localStorageKey);
+      
+      if (storedFiles) {
+        const parsedFiles = JSON.parse(storedFiles);
+        if (Array.isArray(parsedFiles)) {
+          set({ files: parsedFiles });
+          console.log('Files loaded from localStorage successfully', parsedFiles);
+          return true;
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error loading files from localStorage:', error);
       return false;
     }
   }
