@@ -120,11 +120,12 @@ class GitHubService {
    */
   private async get(endpoint: string, anonymousAllowed: boolean = false) {
     const headers: HeadersInit = {
-      'Accept': 'application/vnd.github.v3+json',
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
     };
     
     if (this.token) {
-      headers['Authorization'] = `token ${this.token}`; // Using 'token' instead of 'Bearer'
+      headers['Authorization'] = `Bearer ${this.token}`;
     } else if (!anonymousAllowed) {
       throw new Error('Authentication required for this operation');
     }
@@ -141,12 +142,13 @@ class GitHubService {
    */
   private async post(endpoint: string, data: any) {
     const headers: HeadersInit = {
-      'Accept': 'application/vnd.github.v3+json',
-      'Content-Type': 'application/json'
+      'Accept': 'application/vnd.github+json',
+      'Content-Type': 'application/json',
+      'X-GitHub-Api-Version': '2022-11-28'
     };
     
     if (this.token) {
-      headers['Authorization'] = `token ${this.token}`; // Using 'token' instead of 'Bearer'
+      headers['Authorization'] = `Bearer ${this.token}`;
     }
 
     console.log(`Sending POST to ${endpoint}`);
@@ -279,17 +281,19 @@ class GitHubService {
       
       console.log('Creating gist with files:', Object.keys(processedFiles));
       
+      // Following GitHub's API documentation format
       const response = await fetch(`${this.baseUrl}/gists`, {
         method: 'POST',
         headers: {
-          'Accept': 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json',
-          'Authorization': `token ${this.token}` // Note: Using 'token' instead of 'Bearer'
+          'Accept': 'application/vnd.github+json',
+          'Authorization': `Bearer ${this.token}`,
+          'X-GitHub-Api-Version': '2022-11-28',
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          files: processedFiles,
           description,
-          public: isPublic
+          public: isPublic,
+          files: processedFiles
         })
       });
       
@@ -409,23 +413,57 @@ class GitHubService {
     owner: string, 
     repo: string, 
     path: string = '', 
-    fileFilter: string[] = ['.html', '.css', '.js']
+    fileFilter: string[] = ['.html', '.css', '.js', '.htm', '.scss', '.jsx', '.tsx', '.ts']
   ): Promise<Record<string, string>> {
     const files: Record<string, string> = {};
+    
+    if (!owner || !repo) {
+      console.error('Owner and repo are required for importing repository contents');
+      return files;
+    }
+    
+    console.log(`Importing contents from ${owner}/${repo}${path ? `, path: ${path}` : ''}`);
+    
     try {
       const contents = await this.getRepoContents(owner, repo, path);
       
-      if (!contents) return files;
+      if (!contents) {
+        console.error(`No contents found at ${owner}/${repo}/${path}`);
+        return files;
+      }
+      
+      console.log(`Found ${contents.length} items in repository`);
       
       for (const item of contents) {
-        // Skip directories or non-matching files
-        if (item.type === 'dir' || !fileFilter.some(ext => item.name.endsWith(ext))) {
-          continue;
-        }
-        
-        const content = await this.getFileContent(owner, repo, item.path);
-        if (content) {
-          files[item.name] = content;
+        try {
+          // Check if it's a directory
+          if (item.type === 'dir') {
+            console.log(`Skipping directory: ${item.name}`);
+            continue;
+          }
+          
+          // Check if file extension matches any in fileFilter
+          const fileName = item.name.toLowerCase();
+          const hasMatchingExtension = fileFilter.some(ext => 
+            fileName.endsWith(ext.toLowerCase())
+          );
+          
+          if (!hasMatchingExtension) {
+            console.log(`Skipping file with non-matching extension: ${item.name}`);
+            continue;
+          }
+          
+          console.log(`Fetching content for: ${item.name}`);
+          const content = await this.getFileContent(owner, repo, item.path);
+          
+          if (content) {
+            console.log(`Successfully retrieved content for: ${item.name}`);
+            files[item.name] = content;
+          } else {
+            console.log(`Failed to retrieve content for: ${item.name}`);
+          }
+        } catch (itemError) {
+          console.error(`Error processing repository item ${item.name}:`, itemError);
         }
       }
       

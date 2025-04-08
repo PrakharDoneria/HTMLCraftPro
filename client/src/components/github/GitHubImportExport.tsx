@@ -57,36 +57,50 @@ const GitHubImportExport: React.FC = () => {
       // Default values
       const result = { owner: '', repo: '', path: '' };
       
-      // Remove trailing slashes
+      // Remove trailing slashes and trim
       const cleanUrl = url.trim().replace(/\/+$/, '');
       
-      // Handle github.com URLs
-      if (cleanUrl.includes('github.com')) {
-        const githubRegex = /github\.com\/([^\/]+)\/([^\/]+)(?:\/tree\/[^\/]+\/(.+))?|github\.com\/([^\/]+)\/([^\/]+)(?:\/blob\/[^\/]+\/(.+))?|github\.com\/([^\/]+)\/([^\/]+)(?:\/(.+))?/;
-        const match = cleanUrl.match(githubRegex);
-        
-        if (match) {
-          // First capture group pattern
-          if (match[1] && match[2]) {
-            result.owner = match[1];
-            result.repo = match[2];
-            result.path = match[3] || '';
-          } 
-          // Second capture group pattern
-          else if (match[4] && match[5]) {
-            result.owner = match[4];
-            result.repo = match[5];
-            result.path = match[6] || '';
-          }
-          // Third capture group pattern
-          else if (match[7] && match[8]) {
-            result.owner = match[7];
-            result.repo = match[8].split('#')[0]; // Remove hash fragment
-            result.path = match[9] || '';
-          }
+      // Extract the path part from any GitHub URL
+      let urlObj: URL;
+      try {
+        urlObj = new URL(cleanUrl);
+      } catch (e) {
+        // If it's not a valid URL, try prepending https:// and try again
+        try {
+          urlObj = new URL(`https://${cleanUrl}`);
+        } catch (e2) {
+          console.error('Invalid URL format');
+          return result;
         }
       }
       
+      // Only proceed if it's a GitHub URL
+      if (!urlObj.hostname.includes('github.com')) {
+        console.error('Not a GitHub URL');
+        return result;
+      }
+      
+      // Get the pathname without leading/trailing slashes
+      const pathname = urlObj.pathname.replace(/^\/+|\/+$/g, '');
+      const parts = pathname.split('/');
+      
+      // GitHub URLs have at least owner/repo in the path
+      if (parts.length >= 2) {
+        result.owner = parts[0];
+        result.repo = parts[1];
+        
+        // Handle tree/blob/raw paths
+        if (parts.length > 3 && ['tree', 'blob', 'raw'].includes(parts[2])) {
+          // Skip the branch name and concat the rest of the path
+          result.path = parts.slice(4).join('/');
+        } 
+        // Handle direct paths (no tree/blob specifier)
+        else if (parts.length > 2) {
+          result.path = parts.slice(2).join('/');
+        }
+      }
+      
+      console.log(`Parsed GitHub URL: owner=${result.owner}, repo=${result.repo}, path=${result.path}`);
       return result;
     } catch (error) {
       console.error('Error parsing GitHub URL:', error);
