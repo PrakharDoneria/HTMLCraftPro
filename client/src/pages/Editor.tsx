@@ -323,17 +323,6 @@ const Editor: React.FC = () => {
         onClose={toggleCommandPalette}
       />
       
-      {/* Terminal Button */}
-      {!terminalVisible && (
-        <button
-          className="fixed bottom-6 right-6 bg-[#333] hover:bg-[#444] p-2 rounded-full shadow-lg z-50"
-          onClick={() => setTerminalVisible(true)}
-          title="Open Terminal (Ctrl+`)"
-        >
-          <TerminalSquare className="h-6 w-6 text-[#75beff]" />
-        </button>
-      )}
-      
       {/* Terminal Component */}
       <Terminal
         visible={terminalVisible}

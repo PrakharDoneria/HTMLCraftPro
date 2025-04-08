@@ -213,65 +213,28 @@ const Preview: React.FC<PreviewProps> = ({
     }
   };
 
-  // Enhanced device frame appearance for responsive modes
+  // VS Code device frame appearance for responsive modes
   const getDeviceFrame = () => {
     if (responsiveMode === 'full') return null;
     
     return (
       <div className={cn(
-        "absolute inset-0 pointer-events-none border-[3px] rounded shadow-md",
+        "absolute inset-0 pointer-events-none border-2 border-[#474747] rounded",
         {
-          "rounded-[36px] border-[#333] bg-[#111]": responsiveMode === 'mobile',
-          "rounded-[16px] border-[#444] bg-[#222]": responsiveMode === 'tablet',
-          "rounded-[6px] border-[#666] bg-transparent": responsiveMode === 'desktop'
+          "rounded-[32px]": responsiveMode === 'mobile',
+          "rounded-[24px]": responsiveMode === 'tablet'
         }
       )}>
-        {/* Common device frame features */}
-        <div className={cn(
-          "absolute top-0 left-0 right-0 bg-[#111] flex items-center justify-center",
-          {
-            "h-6 rounded-t-[36px]": responsiveMode === 'mobile',
-            "h-5 rounded-t-[16px]": responsiveMode === 'tablet',
-            "h-7 rounded-t-[6px]": responsiveMode === 'desktop'
-          }
-        )}>
-          {responsiveMode === 'mobile' && (
-            <div className="absolute top-[8px] left-1/2 -translate-x-1/2 w-16 h-1.5 bg-[#333] rounded-full flex items-center justify-center">
-              <div className="w-6 h-6 rounded-full absolute top-[-10px] bg-[#222] flex items-center justify-center">
-                <div className="w-3.5 h-3.5 rounded-full bg-[#444]"></div>
-              </div>
-            </div>
-          )}
-          {responsiveMode === 'desktop' && (
-            <div className="flex items-center space-x-1.5 absolute left-2">
-              <div className="w-3 h-3 rounded-full bg-[#ff5f57]"></div>
-              <div className="w-3 h-3 rounded-full bg-[#febc2e]"></div>
-              <div className="w-3 h-3 rounded-full bg-[#28c840]"></div>
-            </div>
-          )}
-        </div>
-        
-        {/* Mobile specific elements */}
         {responsiveMode === 'mobile' && (
           <>
-            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-[80px] h-[4px] bg-[#333] rounded-full"></div>
-            <div className="absolute right-[-12px] top-[60px] h-[60px] w-[4px] bg-[#222] rounded-l-sm"></div>
-            <div className="absolute right-[-12px] top-[140px] h-[100px] w-[4px] bg-[#222] rounded-l-sm"></div>
-            <div className="absolute left-[-12px] top-[80px] h-[60px] w-[4px] bg-[#222] rounded-r-sm"></div>
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 w-16 h-1 bg-[#474747] rounded-full"></div>
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-10 h-10 border-2 border-[#474747] rounded-full"></div>
           </>
         )}
-        
-        {/* Tablet specific elements */}
         {responsiveMode === 'tablet' && (
           <>
-            <div className="absolute top-1/2 -translate-y-1/2 right-[2px] w-[4px] h-14 bg-[#333] rounded-l-full"></div>
-            <div className="absolute top-[20px] left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-[#333]"></div>
+            <div className="absolute top-1/2 -translate-y-1/2 right-3 w-1 h-10 bg-[#474747] rounded-full"></div>
           </>
-        )}
-        
-        {/* Desktop specific elements */}
-        {responsiveMode === 'desktop' && (
-          <div className="absolute bottom-0 left-0 right-0 h-4 bg-[#333] rounded-b-[6px]"></div>
         )}
       </div>
     );
