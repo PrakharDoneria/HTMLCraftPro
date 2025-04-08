@@ -64,6 +64,16 @@ const GitHubGists: React.FC = () => {
   };
 
   const handleCreateGist = async () => {
+    // Check authentication first
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please login with your GitHub account first",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (selectedFiles.length === 0) {
       toast({
         title: "No Files Selected",
@@ -74,6 +84,9 @@ const GitHubGists: React.FC = () => {
     }
 
     try {
+      console.log('Creating new gist...');
+      console.log('Selected files:', selectedFiles.length);
+      
       // Prepare files for gist creation
       const gistFiles: Record<string, { content: string }> = {};
       
@@ -81,8 +94,9 @@ const GitHubGists: React.FC = () => {
       for (const fileId of selectedFiles) {
         const tab = tabs.find(tab => tab.id === fileId);
         if (tab) {
-          // Make sure content is a non-empty string
+          // Make sure content is a non-empty string (GitHub API requires content)
           const content = tab.content || ' '; // GitHub API doesn't accept empty content
+          console.log(`Adding file: ${tab.fileName} (${content.length} chars)`);
           gistFiles[tab.fileName] = { content };
         }
       }
@@ -97,29 +111,60 @@ const GitHubGists: React.FC = () => {
         return;
       }
 
+      console.log(`Creating gist with ${Object.keys(gistFiles).length} files`);
+      console.log('Description:', gistDescription.trim() || '(no description)');
+      console.log('Public:', isPublic);
+      
+      // Create the gist and handle response
       const gist = await createGist(gistFiles, gistDescription.trim(), isPublic);
       
       if (gist) {
+        console.log('Gist created successfully:', gist.html_url);
         toast({
           title: "Gist Created",
           description: `Successfully created gist${gist.description ? ': ' + gist.description : ''}`,
         });
+        
+        // Reset form state
         setGistDescription('');
         setIsPublic(true);
         setSelectedFiles([]);
         setShowCreateForm(false);
+        
+        // If gist was created successfully, open it in a new tab
+        if (gist.html_url) {
+          window.open(gist.html_url, '_blank');
+        }
+        
+        // Refresh gist list
+        fetchUserGists();
       } else {
+        console.error('Failed to create gist, null response');
         toast({
           title: "Error Creating Gist",
-          description: createGistError || "Failed to create gist",
+          description: createGistError || "Failed to create gist - check console for details",
           variant: "destructive"
         });
       }
     } catch (error) {
       console.error("Error creating gist:", error);
+      let errorMessage = "An unexpected error occurred";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Extract useful information from error message
+        if (error.message.includes('404')) {
+          errorMessage = "GitHub API error: The API endpoint was not found. Please check your authentication token.";
+        } else if (error.message.includes('401')) {
+          errorMessage = "GitHub API error: Authentication failed. Your token might be invalid or expired.";
+        }
+      } else if (createGistError) {
+        errorMessage = createGistError;
+      }
+      
       toast({
         title: "Error Creating Gist",
-        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        description: errorMessage,
         variant: "destructive"
       });
     }

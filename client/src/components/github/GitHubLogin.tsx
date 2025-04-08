@@ -37,28 +37,63 @@ const GitHubLogin: React.FC = () => {
       });
       return;
     }
+    
+    // Validate token format - personal access tokens should be 40+ characters and alphanumeric
+    if (tokenInput.trim().length < 20 || !/^[a-zA-Z0-9_]+$/.test(tokenInput.trim())) {
+      toast({
+        title: "Invalid Token Format",
+        description: "The token appears to be in an invalid format. GitHub tokens are long alphanumeric strings.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setIsLoggingIn(true);
+    console.log("Attempting to login with GitHub token...");
+    
     try {
-      const success = await setToken(tokenInput);
+      // Clean the token (remove any whitespace)
+      const cleanToken = tokenInput.trim();
+      console.log(`Token length: ${cleanToken.length} characters`);
+      
+      const success = await setToken(cleanToken);
+      
       if (success) {
+        console.log("GitHub authentication successful");
         setShowTokenInput(false);
         setTokenInput('');
         toast({
           title: "Login Successful",
           description: "You've been successfully authenticated with GitHub",
         });
+        
+        // Fetch user data immediately
+        fetchUserProfile();
       } else {
+        console.error("GitHub authentication failed - token validation unsuccessful");
         toast({
           title: "Login Failed",
-          description: "Invalid token or GitHub API error",
+          description: "Invalid token or GitHub API error. Please ensure your token has the necessary scopes (repo, gist).",
           variant: "destructive"
         });
       }
     } catch (error) {
+      console.error("GitHub login error:", error);
+      let errorMessage = "Failed to authenticate with GitHub";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Make error message more user-friendly
+        if (error.message.includes('401')) {
+          errorMessage = "Authentication failed: Invalid token or insufficient permissions";
+        } else if (error.message.includes('403')) {
+          errorMessage = "Authentication failed: API rate limit exceeded or access forbidden";
+        }
+      }
+      
       toast({
         title: "Login Error",
-        description: "Failed to authenticate with GitHub",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -90,8 +125,13 @@ const GitHubLogin: React.FC = () => {
             </Button>
           ) : (
             <div className="space-y-2">
-              <div className="text-xs text-[#a0a0a0] mb-1">
-                Enter a GitHub Personal Access Token with gist and repo scopes
+              <div className="space-y-1 mb-1">
+                <div className="text-xs text-[#a0a0a0]">
+                  Enter a GitHub Personal Access Token (Fine-grained or Classic)
+                </div>
+                <div className="text-[10px] text-[#8a8a8a]">
+                  Required scopes: <span className="text-[#75beff]">repo</span> (for repository operations) & <span className="text-[#75beff]">gist</span> (for gist operations)
+                </div>
               </div>
               <div className="flex space-x-2">
                 <Input
@@ -122,16 +162,24 @@ const GitHubLogin: React.FC = () => {
                   <LogOut className="h-3.5 w-3.5" />
                 </Button>
               </div>
-              <div className="text-[10px] text-[#a0a0a0]">
-                Create a token at{' '}
-                <a 
-                  href="https://github.com/settings/tokens" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-[#75beff] hover:underline"
-                >
-                  github.com/settings/tokens
-                </a>
+              <div className="text-[10px] text-[#a0a0a0] space-y-1">
+                <div>
+                  Create a token at{' '}
+                  <a 
+                    href="https://github.com/settings/tokens" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-[#75beff] hover:underline"
+                  >
+                    github.com/settings/tokens
+                  </a>
+                </div>
+                <div>
+                  For <span className="text-[#75beff]">Classic tokens</span>, select scopes: <span className="text-[#75beff]">repo</span> and <span className="text-[#75beff]">gist</span>
+                </div>
+                <div>
+                  For <span className="text-[#75beff]">Fine-grained tokens</span>, grant access to the repositories you want to work with and select <span className="text-[#75beff]">Contents</span> (read & write) and <span className="text-[#75beff]">Gists</span> (read & write) permissions
+                </div>
               </div>
             </div>
           )}

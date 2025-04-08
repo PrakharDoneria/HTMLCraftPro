@@ -257,10 +257,16 @@ class GitHubService {
     isPublic: boolean = true
   ): Promise<GitHubGist | null> {
     try {
-      if (!this.token) return null;
+      // Debug - Check token availability
+      console.log('Creating gist - Token available:', !!this.token);
+      if (!this.token) {
+        console.error('No GitHub token available. Please authenticate first.');
+        return null;
+      }
       
       // Validate files object
       if (!files || Object.keys(files).length === 0) {
+        console.error('No files provided for gist creation');
         throw new Error('No files provided for gist creation');
       }
       
@@ -276,11 +282,11 @@ class GitHubService {
       
       // Check again after processing to ensure we have at least one valid file
       if (Object.keys(processedFiles).length === 0) {
+        console.error('No valid files to create gist with after processing');
         throw new Error('No valid files to create gist with');
       }
       
       console.log('Creating gist with files:', Object.keys(processedFiles));
-      console.log('Token available:', !!this.token);
       
       // Construct request based exactly on the successful curl example
       const requestBody = {
@@ -289,41 +295,78 @@ class GitHubService {
         files: processedFiles
       };
       
-      console.log('Request body:', JSON.stringify(requestBody));
+      console.log('Request body preview:', JSON.stringify({
+        description,
+        public: isPublic,
+        files: Object.keys(processedFiles).reduce((acc, key) => {
+          acc[key] = { content: processedFiles[key].content.substring(0, 50) + '...' };
+          return acc;
+        }, {} as Record<string, { content: string }>)
+      }));
       
-      // Use direct fetch with exact same headers as the successful curl example
-      const response = await fetch('https://api.github.com/gists', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/vnd.github+json',
-          'Authorization': `Bearer ${this.token}`,
-          'X-GitHub-Api-Version': '2022-11-28',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-      });
+      // Create a clean token display for logging (only show first few chars)
+      const tokenPreview = this.token ? 
+        `${this.token.substring(0, 4)}...${this.token.substring(this.token.length - 4)}` : 
+        'no token';
+      console.log(`Using token: ${tokenPreview}`);
       
-      console.log('Response status:', response.status);
-      
-      if (response.status === 201) {
-        const data = await response.json();
-        console.log('Gist created successfully:', data.html_url);
-        return data;
-      } else {
-        // Read response body text for better error diagnosis
-        const responseText = await response.text();
-        console.error('Error creating gist, status:', response.status);
-        console.error('Response body:', responseText);
+      // Using a more robust error handling approach
+      try {
+        // Use direct fetch with exact same headers as the successful curl example
+        console.log('Making POST request to https://api.github.com/gists');
+        const response = await fetch('https://api.github.com/gists', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/vnd.github+json',
+            'Authorization': `Bearer ${this.token}`,
+            'X-GitHub-Api-Version': '2022-11-28',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody)
+        });
         
-        // Try to parse the response as JSON, if possible
-        let errorData;
-        try {
-          errorData = JSON.parse(responseText);
-        } catch (e) {
-          errorData = { message: responseText || 'Unknown error' };
+        console.log('Response status:', response.status);
+        
+        // Log important response headers individually
+        console.log('Response headers - Content-Type:', response.headers.get('Content-Type'));
+        console.log('Response headers - X-GitHub-Request-Id:', response.headers.get('X-GitHub-Request-Id'));
+        console.log('Response headers - X-RateLimit-Remaining:', response.headers.get('X-RateLimit-Remaining'));
+        
+        // Handle successful creation
+        if (response.status === 201) {
+          const data = await response.json();
+          console.log('Gist created successfully:', data.html_url);
+          return data;
+        } 
+        // Handle authentication errors
+        else if (response.status === 401) {
+          console.error('Authentication failed: Invalid or expired token');
+          throw new Error('Authentication failed: Invalid or expired token');
         }
-        
-        throw new Error(`GitHub API error: ${response.status} - ${JSON.stringify(errorData)}`);
+        // Handle rate limiting
+        else if (response.status === 403 && response.headers.get('X-RateLimit-Remaining') === '0') {
+          console.error('Rate limit exceeded. Try again later.');
+          throw new Error('GitHub API rate limit exceeded. Try again later.');
+        }
+        // Handle other errors
+        else {
+          // Read response body text for better error diagnosis
+          const responseText = await response.text();
+          console.error(`Error creating gist (status ${response.status}):`, responseText);
+          
+          // Try to parse the response as JSON, if possible
+          let errorData;
+          try {
+            errorData = JSON.parse(responseText);
+          } catch (e) {
+            errorData = { message: responseText || 'Unknown error' };
+          }
+          
+          throw new Error(`GitHub API error: ${response.status} - ${JSON.stringify(errorData)}`);
+        }
+      } catch (networkError) {
+        console.error('Network error when making request to GitHub API:', networkError);
+        throw networkError;
       }
     } catch (error) {
       console.error('Error creating GitHub gist:', error);
