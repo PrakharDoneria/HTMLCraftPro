@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 const GitHubLoginLazy = lazy(() => import('@/components/github/GitHubLogin'));
 const GitHubReposLazy = lazy(() => import('@/components/github/GitHubRepos'));
 const GitHubGistsLazy = lazy(() => import('@/components/github/GitHubGists'));
+const GitHubImportExportLazy = lazy(() => import('@/components/github/GitHubImportExport'));
 
 interface SidebarProps {
   className?: string;
@@ -624,6 +625,7 @@ const Sidebar: React.FC<SidebarProps> = ({ className = '' }) => {
             {/* Dynamically import GitHub components to avoid circular dependencies */}
             <React.Suspense fallback={<div className="text-xs text-[#9e9e9e] mt-2">Loading GitHub integration...</div>}>
               <GitHubLoginLazy />
+              <GitHubImportExportLazy />
               <GitHubReposLazy />
               <GitHubGistsLazy />
             </React.Suspense>

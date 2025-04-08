@@ -73,32 +73,53 @@ const GitHubGists: React.FC = () => {
       return;
     }
 
-    // Prepare files for gist creation
-    const gistFiles: Record<string, { content: string }> = {};
-    
-    // Find the selected tab objects and add their content to gistFiles
-    selectedFiles.forEach(fileId => {
-      const tab = tabs.find(tab => tab.id === fileId);
-      if (tab) {
-        gistFiles[tab.fileName] = { content: tab.content };
+    try {
+      // Prepare files for gist creation
+      const gistFiles: Record<string, { content: string }> = {};
+      
+      // Find the selected tab objects and add their content to gistFiles
+      for (const fileId of selectedFiles) {
+        const tab = tabs.find(tab => tab.id === fileId);
+        if (tab) {
+          // Make sure content is a non-empty string
+          const content = tab.content || ' '; // GitHub API doesn't accept empty content
+          gistFiles[tab.fileName] = { content };
+        }
       }
-    });
+      
+      // Validate that we have at least one file with content
+      if (Object.keys(gistFiles).length === 0) {
+        toast({
+          title: "No Valid Files",
+          description: "Selected files don't have any content to share",
+          variant: "destructive"
+        });
+        return;
+      }
 
-    const gist = await createGist(gistFiles, gistDescription.trim(), isPublic);
-    
-    if (gist) {
-      toast({
-        title: "Gist Created",
-        description: `Successfully created gist${gist.description ? ': ' + gist.description : ''}`,
-      });
-      setGistDescription('');
-      setIsPublic(true);
-      setSelectedFiles([]);
-      setShowCreateForm(false);
-    } else {
+      const gist = await createGist(gistFiles, gistDescription.trim(), isPublic);
+      
+      if (gist) {
+        toast({
+          title: "Gist Created",
+          description: `Successfully created gist${gist.description ? ': ' + gist.description : ''}`,
+        });
+        setGistDescription('');
+        setIsPublic(true);
+        setSelectedFiles([]);
+        setShowCreateForm(false);
+      } else {
+        toast({
+          title: "Error Creating Gist",
+          description: createGistError || "Failed to create gist",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error creating gist:", error);
       toast({
         title: "Error Creating Gist",
-        description: createGistError || "Failed to create gist",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive"
       });
     }

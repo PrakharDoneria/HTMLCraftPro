@@ -21,6 +21,8 @@ interface GitHubStore {
   userLoading: boolean;
   reposLoading: boolean;
   gistsLoading: boolean;
+  importingFiles: boolean;
+  pushingFiles: boolean;
   
   // Action loading states
   creatingRepo: boolean;
@@ -32,6 +34,8 @@ interface GitHubStore {
   gistsError: string | null;
   createRepoError: string | null;
   createGistError: string | null;
+  importFilesError: string | null;
+  pushFilesError: string | null;
   
   // Auth actions
   setToken: (token: string) => Promise<boolean>;
@@ -49,6 +53,21 @@ interface GitHubStore {
     description?: string,
     isPublic?: boolean
   ) => Promise<GitHubGist | null>;
+  
+  // Import/Push operations
+  importFilesFromRepo: (
+    owner: string, 
+    repo: string, 
+    path?: string, 
+    fileFilter?: string[]
+  ) => Promise<Record<string, string>>;
+  
+  pushFilesToRepo: (
+    owner: string,
+    repo: string,
+    files: Array<{path: string, content: string}>,
+    commitMessage?: string
+  ) => Promise<boolean>;
   
   // Aggregated actions
   loadAllUserData: () => Promise<void>;
@@ -68,6 +87,8 @@ export const useGitHubStore = create<GitHubStore>((set, get) => ({
   userLoading: false,
   reposLoading: false,
   gistsLoading: false,
+  importingFiles: false,
+  pushingFiles: false,
   
   creatingRepo: false,
   creatingGist: false,
@@ -77,6 +98,8 @@ export const useGitHubStore = create<GitHubStore>((set, get) => ({
   gistsError: null,
   createRepoError: null,
   createGistError: null,
+  importFilesError: null,
+  pushFilesError: null,
   
   // Auth actions
   setToken: async (token: string) => {
@@ -230,27 +253,85 @@ export const useGitHubStore = create<GitHubStore>((set, get) => ({
     try {
       const gist = await githubService.createGist(files, description, isPublic);
       
-      if (gist) {
-        // Update gists list with the new gist
-        set(state => ({ 
-          gists: [gist, ...state.gists],
-          creatingGist: false 
-        }));
-      } else {
-        set({ 
-          creatingGist: false, 
-          createGistError: 'Failed to create gist'
-        });
-      }
+      // If we got here, it was successful and gist is not null
+      // Update gists list with the new gist
+      const updatedGists = gist ? [gist, ...get().gists] : [...get().gists];
+      set({ 
+        gists: updatedGists,
+        creatingGist: false 
+      });
       
       return gist;
     } catch (error) {
       console.error('Error creating GitHub gist:', error);
+      // Extract meaningful error message
+      const errorMessage = error instanceof Error 
+        ? error.message
+        : 'Failed to create gist';
+        
       set({ 
         creatingGist: false, 
-        createGistError: 'Error creating gist'
+        createGistError: errorMessage
       });
       return null;
+    }
+  },
+  
+  // Import files from GitHub repository 
+  importFilesFromRepo: async (
+    owner: string, 
+    repo: string, 
+    path: string = '', 
+    fileFilter: string[] = ['.html', '.css', '.js']
+  ) => {
+    set({ importingFiles: true, importFilesError: null });
+    
+    try {
+      const files = await githubService.importRepoContents(owner, repo, path, fileFilter);
+      set({ importingFiles: false });
+      return files;
+    } catch (error) {
+      console.error('Error importing files from GitHub:', error);
+      set({ 
+        importingFiles: false, 
+        importFilesError: 'Failed to import files from repository' 
+      });
+      return {};
+    }
+  },
+  
+  // Push files to GitHub repository
+  pushFilesToRepo: async (
+    owner: string,
+    repo: string,
+    files: Array<{path: string, content: string}>,
+    commitMessage: string = 'Push from HTML Editor'
+  ) => {
+    const { isAuthenticated } = get();
+    if (!isAuthenticated) return false;
+    
+    set({ pushingFiles: true, pushFilesError: null });
+    
+    try {
+      const success = await githubService.pushFiles(owner, repo, files, commitMessage);
+      
+      if (success) {
+        set({ pushingFiles: false });
+      } else {
+        set({ 
+          pushingFiles: false, 
+          pushFilesError: 'Failed to push files to repository'
+        });
+      }
+      
+      return success;
+    } catch (error) {
+      console.error('Error pushing files to GitHub:', error);
+      set({ 
+        pushingFiles: false, 
+        pushFilesError: 'Error pushing files to repository'
+      });
+      return false;
     }
   },
   
